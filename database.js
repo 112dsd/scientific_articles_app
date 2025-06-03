@@ -1,82 +1,124 @@
 const express = require('express');
 const sqlite3 = require('sqlite3').verbose();
-const bodyParser = require('body-parser');
+const path = require('path');
 const bcrypt = require('bcrypt');
 const cors = require('cors');
-const path = require('path');
+const jwt = require('jsonwebtoken');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
-const SALT_ROUNDS = 10;
+const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key';
 
 // Middleware
 app.use(cors());
-app.use(bodyParser.json());
+app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
 
-// Подключение к SQLite
+// Database setup
 const db = new sqlite3.Database('./articles.db', (err) => {
-    if (err) console.error('Ошибка БД:', err.message);
-    else console.log('Подключено к SQLite');
+  if (err) console.error('Database error:', err.message);
+  else console.log('Connected to SQLite database');
 });
 
-// Инициализация БД
+// Initialize tables
 db.serialize(() => {
-    db.run(`CREATE TABLE IF NOT EXISTS users (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        fullname TEXT NOT NULL,
-        email TEXT UNIQUE NOT NULL,
-        password TEXT NOT NULL,
-        institution TEXT,
-        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-    )`);
+  db.run(`CREATE TABLE IF NOT EXISTS users (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    fullname TEXT NOT NULL,
+    email TEXT UNIQUE NOT NULL,
+    password TEXT NOT NULL,
+    institution TEXT,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+  )`);
 
-    db.run(`CREATE TABLE IF NOT EXISTS articles (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        title TEXT NOT NULL,
-        author TEXT NOT NULL,
-        abstract TEXT NOT NULL,
-        keywords TEXT NOT NULL,
-        content TEXT NOT NULL,
-        references TEXT,
-        user_id INTEGER,
-        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-        FOREIGN KEY (user_id) REFERENCES users(id)
-    )`);
+  db.run(`CREATE TABLE IF NOT EXISTS articles (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    title TEXT NOT NULL,
+    author TEXT NOT NULL,
+    abstract TEXT NOT NULL,
+    keywords TEXT NOT NULL,
+    content TEXT NOT NULL,
+    bibliography TEXT,
+    user_id INTEGER,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(id)
+  )`);
 });
 
-// Роут регистрации (исправленный)
-app.post('/register', async (req, res) => {
+// Auth middleware
+const authenticate = (req, res, next) => {
+  const token = req.headers.authorization?.split(' ')[1];
+  if (!token) return res.status(401).json({ error: 'Unauthorized' });
+
+  try {
+    req.user = jwt.verify(token, JWT_SECRET);
+    next();
+  } catch (err) {
+    res.status(401).json({ error: 'Invalid token' });
+  }
+};
+
+// Routes
+app.post('/api/register', async (req, res) => {
+  try {
     const { fullname, email, password, institution } = req.body;
-
-    try {
-        // Проверка существующего email
-        db.get('SELECT email FROM users WHERE email = ?', [email], async (err, row) => {
-            if (err) throw err;
-            if (row) return res.status(400).json({ error: 'Email уже занят' });
-
-            const hashedPassword = await bcrypt.hash(password, SALT_ROUNDS);
-            
-            db.run(
-                `INSERT INTO users (fullname, email, password, institution) 
-                 VALUES (?, ?, ?, ?)`,
-                [fullname, email, hashedPassword, institution],
-                function(err) {
-                    if (err) throw err;
-                    res.json({ success: true });
-                }
-            );
-        });
-    } catch (error) {
-        res.status(500).json({ error: error.message });
-    }
+    const hashedPassword = await bcrypt.hash(password, 10);
+    
+    db.run(
+      `INSERT INTO users (fullname, email, password, institution) 
+       VALUES (?, ?, ?, ?)`,
+      [fullname, email, hashedPassword, institution],
+      function(err) {
+        if (err) return res.status(400).json({ error: 'Email already exists' });
+        res.status(201).json({ id: this.lastID });
+      }
+    );
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
-// Остальные API-роуты (логин, статьи и т.д.)
-app.post('/login', async (req, res) => { /* ... */ });
-app.get('/articles', (req, res) => { /* ... */ });
+app.post('/api/login', async (req, res) => {
+  const { email, password } = req.body;
+  
+  db.get('SELECT * FROM users WHERE email = ?', [email], async (err, user) => {
+    if (err || !user) return res.status(401).json({ error: 'Invalid credentials' });
+    
+    const valid = await bcrypt.compare(password, user.password);
+    if (!valid) return res.status(401).json({ error: 'Invalid credentials' });
+    
+    const token = jwt.sign({ id: user.id, email: user.email }, JWT_SECRET);
+    res.json({ token });
+  });
+});
 
-// Запуск сервера
+app.get('/api/articles', (req, res) => {
+  db.all('SELECT * FROM articles', [], (err, articles) => {
+    if (err) return res.status(500).json({ error: err.message });
+    res.json(articles);
+  });
+});
+
+app.post('/api/articles', authenticate, (req, res) => {
+  const { title, author, abstract, keywords, content, bibliography } = req.body;
+  
+  db.run(
+    `INSERT INTO articles 
+     (title, author, abstract, keywords, content, bibliography, user_id) 
+     VALUES (?, ?, ?, ?, ?, ?, ?)`,
+    [title, author, abstract, keywords, content, bibliography, req.user.id],
+    function(err) {
+      if (err) return res.status(500).json({ error: err.message });
+      res.status(201).json({ id: this.lastID });
+    }
+  );
+});
+
+// Serve frontend
+app.get('*', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'index.html'));
+});
+
 app.listen(PORT, () => {
-    console.log(`Сервер запущен на порту ${PORT}`);
+  console.log(`Server running on port ${PORT}`);
 });

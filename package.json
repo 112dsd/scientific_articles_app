@@ -2,13 +2,17 @@
   "name": "scientific-articles-app",
   "version": "1.0.0",
   "scripts": {
-    "start": "node database.js"
+    "start": "node database.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
   },
   "dependencies": {
+    "bcrypt": "^5.1.0",
+    "cors": "^2.8.5",
     "express": "^4.18.2",
-    "sqlite3": "^5.0.2",
-    "bcrypt": "^5.1.1",
-    "body-parser": "^1.20.2",
-    "cors": "^2.8.5"
+    "jsonwebtoken": "^9.0.0",
+    "sqlite3": "^5.1.4"
+  },
+  "engines": {
+    "node": ">=16.0.0"
   }
 }
