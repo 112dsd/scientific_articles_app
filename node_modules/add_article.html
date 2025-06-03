@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Добавить статью</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <header>
+        <h1>Добавить новую статью</h1>
+        <nav>
+            <ul>
+                <li><a href="index.html">Главная</a></li>
+                <li><a href="articles.html">Статьи</a></li>
+                <li><a href="add_article.html">Добавить статью</a></li>
+                <li><a href="login.html">Вход</a></li>
+                <li><a href="register.html">Регистрация</a></li>
+            </ul>
+        </nav>
+    </header>
+
+    <main>
+        <form id="articleForm" class="article-form">
+            <div class="form-group">
+                <label for="title">Название статьи:</label>
+                <input type="text" id="title" name="title" required>
+            </div>
+            <div class="form-group">
+                <label for="author">Автор:</label>
+                <input type="text" id="author" name="author" required>
+            </div>
+            <div class="form-group">
+                <label for="abstract">Аннотация:</label>
+                <textarea id="abstract" name="abstract" rows="4" required></textarea>
+            </div>
+            <div class="form-group">
+                <label for="keywords">Ключевые слова (через запятую):</label>
+                <input type="text" id="keywords" name="keywords" required>
+            </div>
+            <div class="form-group">
+                <label for="content">Полный текст статьи:</label>
+                <textarea id="content" name="content" rows="10" required></textarea>
+            </div>
+            <div class="form-group">
+                <label for="references">Список литературы:</label>
+                <textarea id="references" name="references" rows="4"></textarea>
+            </div>
+            <button type="submit" class="btn">Опубликовать</button>
+        </form>
+    </main>
+
+    <footer>
+        <p>&copy; 2023 Платформа научных публикаций. Все права защищены.</p>
+    </footer>
+
+    <script src="script.js"></script>
+</body>
+</html>
