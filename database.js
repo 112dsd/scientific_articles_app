@@ -122,3 +122,14 @@ app.get('*', (req, res) => {
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
 });
+// Добавляем в конец файла перед app.listen()
+app.get('/api/articles/:id', (req, res) => {
+  const articleId = req.params.id;
+  
+  db.get('SELECT * FROM articles WHERE id = ?', [articleId], (err, article) => {
+    if (err) return res.status(500).json({ error: err.message });
+    if (!article) return res.status(404).json({ error: 'Статья не найдена' });
+    
+    res.json(article);
+  });
+});

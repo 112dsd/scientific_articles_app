@@ -111,3 +111,42 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 });
+
+// Добавляем в конец файла
+function loadFullArticle(articleId) {
+  fetch(`${API_BASE}/api/articles/${articleId}`)
+    .then(response => response.json())
+    .then(article => {
+      document.getElementById('articleTitle').textContent = article.title;
+      document.getElementById('articleAuthor').textContent = `Автор: ${article.author}`;
+      document.getElementById('articleAbstract').textContent = article.abstract;
+      document.getElementById('articleContent').innerHTML = article.content.replace(/\n/g, '<br>');
+      document.getElementById('articleKeywords').textContent = `Ключевые слова: ${article.keywords}`;
+      document.getElementById('articleBibliography').innerHTML = article.bibliography ? `Список литературы:<br>${article.bibliography.replace(/\n/g, '<br>')}` : '';
+    })
+    .catch(error => console.error('Ошибка загрузки статьи:', error));
+}
+
+// Обработка просмотра статьи
+if (document.getElementById('articleContent')) {
+  const articleId = new URLSearchParams(window.location.search).get('id');
+  if (articleId) {
+    loadFullArticle(articleId);
+  }
+}
+
+// Обновляем функцию загрузки списка статей
+if (articlesList) {
+  fetch(`${API_BASE}/api/articles`)
+    .then(res => res.json())
+    .then(articles => {
+      articlesList.innerHTML = articles.map(article => `
+        <div class="article-card">
+          <h3><a href="article.html?id=${article.id}">${article.title}</a></h3>
+          <p class="author">Автор: ${article.author}</p>
+          <p class="abstract">${article.abstract.substring(0, 150)}...</p>
+          <a href="article.html?id=${article.id}" class="read-more">Читать полностью</a>
+        </div>
+      `).join('');
+    });
+}
