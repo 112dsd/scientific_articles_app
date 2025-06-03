@@ -1,48 +1,31 @@
 <!DOCTYPE html>
 <html lang="ru">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Научные статьи</title>
-    <link rel="stylesheet" href="style.css">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Научные статьи</title>
+  <link rel="stylesheet" href="style.css">
 </head>
 <body>
-    <header>
-        <h1>Научные статьи</h1>
-        <nav>
-            <ul>
-                <li><a href="index.html">Главная</a></li>
-                <li><a href="articles.html">Статьи</a></li>
-                <li><a href="add_article.html">Добавить статью</a></li>
-                <li><a href="login.html">Вход</a></li>
-                <li><a href="register.html">Регистрация</a></li>
-            </ul>
-        </nav>
-    </header>
-
-    <main>
-        <section class="search-section">
-            <form id="searchForm">
-                <input type="text" id="searchQuery" placeholder="Поиск по статьям...">
-                <button type="submit" class="btn">Найти</button>
-            </form>
-        </section>
-
-        <section class="articles-list" id="articlesList">
-            <!-- Статьи будут загружаться здесь через JavaScript -->
-            <div class="article-preview">
-                <h3>Название статьи</h3>
-                <p class="author">Автор: Иван Иванов</p>
-                <p class="abstract">Краткое описание статьи...</p>
-                <a href="#" class="read-more">Читать далее</a>
-            </div>
-        </section>
-    </main>
-
-    <footer>
-        <p>&copy; 2023 Платформа научных публикаций. Все права защищены.</p>
-    </footer>
-
-    <script src="script.js"></script>
+  <header>
+    <h1>Платформа научных публикаций</h1>
+    <nav>
+      <a href="index.html">Главная</a>
+      <a href="add_article.html">Добавить статью</a>
+      <a href="login.html">Выход</a>
+    </nav>
+  </header>
+  <main>
+    <section class="articles-section">
+      <h2>Последние публикации</h2>
+      <div id="articlesList" class="articles-grid">
+        <!-- Статьи будут загружаться здесь -->
+      </div>
+    </section>
+  </main>
+  <footer>
+    <p>&copy; 2023 Платформа научных публикаций</p>
+  </footer>
+  <script src="script.js"></script>
 </body>
 </html>
