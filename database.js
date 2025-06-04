@@ -276,3 +276,66 @@ app.use((err, req, res, next) => {
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
 });
+
+// Получение профиля пользователя
+app.get('/profile', authenticateToken, (req, res) => {
+    const userId = req.user.userId;
+    
+    db.get(
+        `SELECT id, fullname, email, institution, created_at 
+         FROM users WHERE id = ?`,
+        [userId],
+        (err, user) => {
+            if (err) {
+                return res.status(500).json({ message: 'Ошибка при получении профиля' });
+            }
+            res.json(user);
+        }
+    );
+});
+
+// Получение статей конкретного пользователя
+app.get('/articles', (req, res) => {
+    const userId = req.query.user_id;
+    const searchQuery = req.query.q;
+    
+    let query = 'SELECT * FROM articles';
+    let params = [];
+    
+    if (userId) {
+        query += ' WHERE user_id = ?';
+        params.push(userId);
+    } else if (searchQuery) {
+        query += ' WHERE title LIKE ? OR abstract LIKE ? OR keywords LIKE ?';
+        const searchParam = `%${searchQuery}%`;
+        params = [searchParam, searchParam, searchParam];
+    }
+    
+    query += ' ORDER BY created_at DESC';
+    
+    db.all(query, params, (err, articles) => {
+        if (err) {
+            return res.status(500).json({ message: 'Ошибка при получении статей' });
+        }
+        res.json(articles);
+    });
+});
+
+// Получение одной статьи по ID
+app.get('/articles/:id', (req, res) => {
+    const articleId = req.params.id;
+    
+    db.get(
+        'SELECT * FROM articles WHERE id = ?',
+        [articleId],
+        (err, article) => {
+            if (err) {
+                return res.status(500).json({ message: 'Ошибка при получении статьи' });
+            }
+            if (!article) {
+                return res.status(404).json({ message: 'Статья не найдена' });
+            }
+            res.json(article);
+        }
+    );
+});

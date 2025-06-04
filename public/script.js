@@ -1,206 +1,143 @@
-// Добавляем в начало файла
-function updateHeaderAuth() {
-  const token = localStorage.getItem('token');
-  const authLinks = document.querySelectorAll('.auth-links');
-  
-  authLinks.forEach(container => {
-    if (token) {
-      container.innerHTML = '<a href="profile.html">Личный кабинет</a>';
-    } else {
-      container.innerHTML = `
-        <a href="login.html">Вход</a>
-        <a href="register.html">Регистрация</a>
-      `;
+// Общие функции
+function checkAuth() {
+    const authToken = localStorage.getItem('authToken');
+    const protectedPages = ['add_article.html', 'profile.html'];
+    const currentPage = window.location.pathname.split('/').pop();
+    
+    if (protectedPages.includes(currentPage) && !authToken) {
+        window.location.href = 'login.html';
     }
-  });
 }
 
-// Вызываем при загрузке каждой страницы
-document.addEventListener('DOMContentLoaded', updateHeaderAuth);
-
-// Обновляем функцию загрузки статей
-function loadArticles(page = 1, search = '', sort = 'newest') {
-  const articlesList = document.getElementById('articlesList');
-  if (!articlesList) return;
-  
-  articlesList.innerHTML = '<div class="loading">Загрузка статей...</div>';
-  
-  fetch(`${API_BASE}/api/articles?page=${page}&q=${search}&sort=${sort}`)
-    .then(response => response.json())
-    .then(data => {
-      if (data.error) throw new Error(data.error);
-      
-      if (data.articles.length === 0) {
-        articlesList.innerHTML = '<div class="no-articles">Статьи не найдены</div>';
+// Обработка формы регистрации
+document.getElementById('registerForm')?.addEventListener('submit', async function(e) {
+    e.preventDefault();
+    
+    if (document.getElementById('password').value !== document.getElementById('confirmPassword').value) {
+        alert('Пароли не совпадают!');
         return;
-      }
-      
-      articlesList.innerHTML = data.articles.map(article => `
-        <article class="article-card">
-          <h3><a href="article.html?id=${article.id}">${article.title}</a></h3>
-          <div class="article-meta">
-            <span>Автор: ${article.author}</span>
-            <span>${new Date(article.created_at).toLocaleDateString()}</span>
-          </div>
-          <p class="article-abstract">${article.abstract}</p>
-          <a href="article.html?id=${article.id}" class="read-more">Читать полностью</a>
-        </article>
-      `).join('');
-    })
-    .catch(error => {
-      console.error('Ошибка загрузки статей:', error);
-      articlesList.innerHTML = `<div class="error">Ошибка: ${error.message}</div>`;
-    });
-}
-const API_BASE = window.location.origin;
-let currentUser = null;
-
-// Auth functions
-async function registerUser(userData) {
-  const response = await fetch(`${API_BASE}/api/register`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(userData)
-  });
-  return await response.json();
-}
-
-async function loginUser(credentials) {
-  const response = await fetch(`${API_BASE}/api/login`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(credentials)
-  });
-  return await response.json();
-}
-
-// Form handlers
-document.addEventListener('DOMContentLoaded', () => {
-  // Register form
-  const registerForm = document.getElementById('registerForm');
-  if (registerForm) {
-    registerForm.addEventListener('submit', async (e) => {
-      e.preventDefault();
-      const formData = {
+    }
+    
+    const formData = {
         fullname: document.getElementById('fullname').value,
         email: document.getElementById('email').value,
         password: document.getElementById('password').value,
         institution: document.getElementById('institution').value
-      };
-      
-      try {
-        await registerUser(formData);
-        window.location.href = 'login.html';
-      } catch (err) {
-        alert(`Registration failed: ${err.message}`);
-      }
-    });
-  }
-
-  // Login form
-  const loginForm = document.getElementById('loginForm');
-  if (loginForm) {
-    loginForm.addEventListener('submit', async (e) => {
-      e.preventDefault();
-      const credentials = {
-        email: document.getElementById('email').value,
-        password: document.getElementById('password').value
-      };
-      
-      try {
-        const { token } = await loginUser(credentials);
-        localStorage.setItem('token', token);
-        window.location.href = 'articles.html';
-      } catch (err) {
-        alert('Login failed');
-      }
-    });
-  }
-
-  // Load articles
-  const articlesList = document.getElementById('articlesList');
-  if (articlesList) {
-    fetch(`${API_BASE}/api/articles`)
-      .then(res => res.json())
-      .then(articles => {
-        articlesList.innerHTML = articles.map(article => `
-          <article class="article-card">
-            <h3>${article.title}</h3>
-            <p class="author">By ${article.author}</p>
-            <p class="abstract">${article.abstract}</p>
-          </article>
-        `).join('');
-      });
-  }
-
-  // Add article form
-  const articleForm = document.getElementById('articleForm');
-  if (articleForm) {
-    articleForm.addEventListener('submit', async (e) => {
-      e.preventDefault();
-      const token = localStorage.getItem('token');
-      
-      const articleData = {
-        title: document.getElementById('title').value,
-        author: document.getElementById('author').value,
-        abstract: document.getElementById('abstract').value,
-        keywords: document.getElementById('keywords').value,
-        content: document.getElementById('content').value,
-        bibliography: document.getElementById('bibliography').value
-      };
-      
-      try {
-        await fetch(`${API_BASE}/api/articles`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`
-          },
-          body: JSON.stringify(articleData)
+    };
+    
+    try {
+        const response = await fetch('/register', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(formData)
         });
-        window.location.href = 'articles.html';
-      } catch (err) {
-        alert('Failed to add article');
-      }
-    });
-  }
+        
+        const data = await response.json();
+        
+        if (response.ok) {
+            alert('Регистрация успешна!');
+            window.location.href = 'login.html';
+        } else {
+            alert(data.message || 'Ошибка регистрации');
+        }
+    } catch (error) {
+        console.error('Error:', error);
+        alert('Произошла ошибка при регистрации');
+    }
 });
 
-// Добавляем в конец файла
-function loadFullArticle(articleId) {
-  fetch(`${API_BASE}/api/articles/${articleId}`)
-    .then(response => response.json())
-    .then(article => {
-      document.getElementById('articleTitle').textContent = article.title;
-      document.getElementById('articleAuthor').textContent = `Автор: ${article.author}`;
-      document.getElementById('articleAbstract').textContent = article.abstract;
-      document.getElementById('articleContent').innerHTML = article.content.replace(/\n/g, '<br>');
-      document.getElementById('articleKeywords').textContent = `Ключевые слова: ${article.keywords}`;
-      document.getElementById('articleBibliography').innerHTML = article.bibliography ? `Список литературы:<br>${article.bibliography.replace(/\n/g, '<br>')}` : '';
-    })
-    .catch(error => console.error('Ошибка загрузки статьи:', error));
+// Обработка формы входа
+document.getElementById('loginForm')?.addEventListener('submit', async function(e) {
+    e.preventDefault();
+    
+    const formData = {
+        email: document.getElementById('email').value,
+        password: document.getElementById('password').value
+    };
+    
+    try {
+        const response = await fetch('/login', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(formData)
+        });
+        
+        const data = await response.json();
+        
+        if (response.ok) {
+            localStorage.setItem('authToken', data.token);
+            alert('Вход выполнен успешно!');
+            window.location.href = 'index.html';
+        } else {
+            alert(data.message || 'Ошибка входа');
+        }
+    } catch (error) {
+        console.error('Error:', error);
+        alert('Произошла ошибка при входе');
+    }
+});
+
+// Загрузка статей
+async function loadArticles(searchQuery = '') {
+    try {
+        const url = searchQuery ? `/articles?q=${encodeURIComponent(searchQuery)}` : '/articles';
+        const response = await fetch(url);
+        const articles = await response.json();
+        
+        const articlesList = document.getElementById('articlesList');
+        articlesList.innerHTML = '';
+        
+        if (articles.length === 0) {
+            articlesList.innerHTML = '<p>Статьи не найдены</p>';
+            return;
+        }
+        
+        articles.forEach(article => {
+            const articleElement = document.createElement('div');
+            articleElement.className = 'article-card card';
+            articleElement.innerHTML = `
+                <h3>${article.title}</h3>
+                <p class="article-meta">${new Date(article.created_at).toLocaleDateString()} • ${article.author}</p>
+                <p>${article.abstract.substring(0, 150)}...</p>
+                <a href="article.html?id=${article.id}" class="btn">Читать далее</a>
+            `;
+            articlesList.appendChild(articleElement);
+        });
+    } catch (error) {
+        console.error('Error:', error);
+        document.getElementById('articlesList').innerHTML = '<p>Произошла ошибка при загрузке статей</p>';
+    }
 }
 
-// Обработка просмотра статьи
-if (document.getElementById('articleContent')) {
-  const articleId = new URLSearchParams(window.location.search).get('id');
-  if (articleId) {
-    loadFullArticle(articleId);
-  }
-}
+// Обработка поиска
+document.getElementById('searchForm')?.addEventListener('submit', function(e) {
+    e.preventDefault();
+    const query = document.getElementById('searchQuery').value;
+    loadArticles(query);
+});
 
-// Обновляем функцию загрузки списка статей
-if (articlesList) {
-  fetch(`${API_BASE}/api/articles`)
-    .then(res => res.json())
-    .then(articles => {
-      articlesList.innerHTML = articles.map(article => `
-        <div class="article-card">
-          <h3><a href="article.html?id=${article.id}">${article.title}</a></h3>
-          <p class="author">Автор: ${article.author}</p>
-          <p class="abstract">${article.abstract.substring(0, 150)}...</p>
-          <a href="article.html?id=${article.id}" class="read-more">Читать полностью</a>
-        </div>
-      `).join('');
+// Инициализация
+document.addEventListener('DOMContentLoaded', function() {
+    checkAuth();
+    
+    // Показываем/скрываем кнопки входа/выхода
+    const authToken = localStorage.getItem('authToken');
+    if (authToken) {
+        document.querySelectorAll('.login-link').forEach(el => el.style.display = 'none');
+        document.querySelectorAll('.logout-link').forEach(el => el.style.display = 'block');
+    } else {
+        document.querySelectorAll('.login-link').forEach(el => el.style.display = 'block');
+        document.querySelectorAll('.logout-link').forEach(el => el.style.display = 'none');
+    }
+    
+    // Загрузка статей на соответствующей странице
+    if (window.location.pathname.includes('articles.html')) {
+        loadArticles();
+    }
+    
+    // Обработчик выхода
+    document.getElementById('logoutBtn')?.addEventListener('click', function() {
+        localStorage.removeItem('authToken');
+        window.location.href = 'index.html';
     });
-}
+});
