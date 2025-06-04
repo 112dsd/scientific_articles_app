@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Научные статьи</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <header>
+        <h1>Научные статьи</h1>
+        <nav>
+            <ul>
+                <li><a href="index.html">Главная</a></li>
+                <li><a href="articles.html">Статьи</a></li>
+                <li><a href="add_article.html">Добавить статью</a></li>
+                <li><a href="profile.html">Профиль</a></li>
+                <li><a href="#" id="logoutBtn">Выйти</a></li>
+            </ul>
+        </nav>
+    </header>
+
+    <main>
+        <div class="card">
+            <form id="searchForm" style="display: flex; gap: 1rem;">
+                <div class="form-group" style="flex: 1;">
+                    <input type="text" id="searchQuery" placeholder="Поиск по статьям...">
+                </div>
+                <button type="submit" class="btn">Найти</button>
+            </form>
+        </div>
+
+        <h2 style="margin: 2rem 0 1rem;">Все статьи</h2>
+        <div class="articles-grid" id="articlesList">
+            <!-- Статьи будут загружены через JavaScript -->
+        </div>
+    </main>
+
+    <footer>
+        <p>&copy; 2023 Платформа научных публикаций. Все права защищены.</p>
+    </footer>
+
+    <script src="script.js"></script>
+</body>
+</html>
