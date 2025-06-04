@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Просмотр Статьи</title>
-  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="/style.css">
 </head>
 <body>
   <header class="header">
@@ -14,7 +14,9 @@
         <a href="index.html">Главная</a>
         <a href="articles.html">Статьи</a>
         <a href="add_article.html">Добавить статью</a>
-        <div class="auth-links"></div>
+        <a href="profile.html" class="logout-link">Профиль</a>
+        <a href="#" id="logoutBtn" class="logout-link">Выйти</a>
+        <a href="login.html" class="login-link">Войти</a>
       </nav>
     </div>
   </header>
@@ -48,9 +50,119 @@
     </div>
   </footer>
 
-  <script src="script.js"></script>
+  <script src="/script.js"></script>
   <script>
-    // Код для загрузки статьи и комментариев (как в предыдущем примере)
+    // Загрузка статьи
+    async function loadArticle() {
+      const articleId = new URLSearchParams(window.location.search).get('id');
+      if (!articleId) {
+        window.location.href = 'articles.html';
+        return;
+      }
+
+      try {
+        const response = await fetch(`/api/articles/${articleId}`);
+        if (!response.ok) {
+          throw new Error('Статья не найдена');
+        }
+        const article = await response.json();
+
+        const articleContainer = document.getElementById('articleContainer');
+        articleContainer.innerHTML = `
+          <h2>${article.title}</h2>
+          <p class="article-meta">Автор: ${article.author} | Дата: ${new Date(article.created_at).toLocaleDateString()}</p>
+          <h3>Аннотация</h3>
+          <p>${article.abstract}</p>
+          <h3>Ключевые слова</h3>
+          <p>${article.keywords}</p>
+          <h3>Основное содержание</h3>
+          <div class="content">${article.content.replace(/\n/g, '<br>')}</div>
+          ${article.bibliography ? `<h3>Список литературы</h3><div class="bibliography">${article.bibliography.replace(/\n/g, '<br>')}</div>` : ''}
+        `;
+      } catch (error) {
+        console.error('Error:', error);
+        document.getElementById('articleContainer').innerHTML = '<p>Не удалось загрузить статью</p>';
+      }
+    }
+
+    // Загрузка комментариев
+    async function loadComments() {
+      const articleId = new URLSearchParams(window.location.search).get('id');
+      if (!articleId) return;
+
+      try {
+        const response = await fetch(`/api/articles/${articleId}/comments`);
+        if (!response.ok) {
+          throw new Error('Ошибка загрузки комментариев');
+        }
+        const comments = await response.json();
+
+        const commentsList = document.getElementById('commentsList');
+        if (comments.length === 0) {
+          commentsList.innerHTML = '<p>Комментариев пока нет</p>';
+          return;
+        }
+
+        commentsList.innerHTML = '';
+        comments.forEach(comment => {
+          const commentElement = document.createElement('div');
+          commentElement.className = 'comment';
+          commentElement.innerHTML = `
+            <div class="comment-header">
+              <span>${comment.author_name}</span>
+              <span>${new Date(comment.created_at).toLocaleDateString()}</span>
+            </div>
+            <div class="comment-text">${comment.content}</div>
+          `;
+          commentsList.appendChild(commentElement);
+        });
+      } catch (error) {
+        console.error('Error:', error);
+        document.getElementById('commentsList').innerHTML = '<p>Ошибка загрузки комментариев</p>';
+      }
+    }
+
+    // Отправка комментария
+    document.getElementById('commentForm')?.addEventListener('submit', async function(e) {
+      e.preventDefault();
+      const articleId = new URLSearchParams(window.location.search).get('id');
+      const content = document.getElementById('commentText').value;
+
+      if (!content) {
+        alert('Введите текст комментария');
+        return;
+      }
+
+      try {
+        const response = await fetch('/api/comments', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${localStorage.getItem('authToken')}`
+          },
+          body: JSON.stringify({
+            article_id: articleId,
+            content: content
+          })
+        });
+
+        if (!response.ok) {
+          throw new Error('Ошибка отправки комментария');
+        }
+
+        document.getElementById('commentText').value = '';
+        loadComments();
+      } catch (error) {
+        console.error('Error:', error);
+        alert('Не удалось отправить комментарий');
+      }
+    });
+
+    // Инициализация страницы статьи
+    document.addEventListener('DOMContentLoaded', function() {
+      loadArticle();
+      loadComments();
+    });
   </script>
 </body>
 </html>
