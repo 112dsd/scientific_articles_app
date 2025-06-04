@@ -107,3 +107,48 @@
   </script>
 </body>
 </html>
+
+<!-- В конец файла добавьте этот скрипт -->
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  const authToken = localStorage.getItem('authToken');
+  if (!authToken) {
+    alert('Для добавления статьи необходимо войти в систему');
+    window.location.href = 'login.html';
+  }
+  
+  document.getElementById('articleForm').addEventListener('submit', async function(e) {
+    e.preventDefault();
+    
+    try {
+      const response = await fetch('/api/articles', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${authToken}`
+        },
+        body: JSON.stringify({
+          title: document.getElementById('title').value,
+          author: document.getElementById('author').value,
+          abstract: document.getElementById('abstract').value,
+          keywords: document.getElementById('keywords').value,
+          content: document.getElementById('content').value,
+          bibliography: document.getElementById('bibliography').value
+        })
+      });
+      
+      const data = await response.json();
+      
+      if (response.ok) {
+        alert('Статья успешно опубликована!');
+        window.location.href = 'articles.html';
+      } else {
+        alert(data.error || 'Ошибка публикации статьи');
+      }
+    } catch (error) {
+      console.error('Ошибка:', error);
+      alert('Ошибка соединения с сервером');
+    }
+  });
+});
+</script>

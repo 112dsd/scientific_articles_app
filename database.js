@@ -64,8 +64,10 @@ function initializeDatabase() {
 
 // Authentication middleware
 function authenticate(req, res, next) {
-  const token = req.headers.authorization?.split(' ')[1] || req.cookies?.token;
-  if (!token) return res.status(401).json({ error: 'Требуется авторизация' });
+  const token = req.headers.authorization?.split(' ')[1];
+  if (!token) {
+    return res.status(401).json({ error: 'Требуется авторизация' });
+  }
 
   try {
     req.user = jwt.verify(token, JWT_SECRET);
@@ -75,10 +77,15 @@ function authenticate(req, res, next) {
   }
 }
 
-// API Routes
+// Auth routes
 app.post('/api/register', async (req, res) => {
   try {
     const { fullname, email, password, institution } = req.body;
+    
+    if (!fullname || !email || !password) {
+      return res.status(400).json({ error: 'Заполните все обязательные поля' });
+    }
+
     const hashedPassword = await bcrypt.hash(password, SALT_ROUNDS);
 
     db.run(
@@ -89,52 +96,82 @@ app.post('/api/register', async (req, res) => {
           if (err.message.includes('UNIQUE constraint failed')) {
             return res.status(400).json({ error: 'Email уже зарегистрирован' });
           }
-          return res.status(500).json({ error: err.message });
+          return res.status(500).json({ error: 'Ошибка сервера' });
         }
         
-        const token = jwt.sign({ id: this.lastID, email }, JWT_SECRET, { expiresIn: '7d' });
-        res.cookie('token', token, { httpOnly: true, secure: process.env.NODE_ENV === 'production' });
-        res.status(201).json({ token });
+        const token = jwt.sign(
+          { id: this.lastID, email },
+          JWT_SECRET,
+          { expiresIn: '7d' }
+        );
+        
+        res.status(201).json({ 
+          token,
+          user: {
+            id: this.lastID,
+            email,
+            fullname,
+            institution
+          }
+        });
       }
     );
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    res.status(500).json({ error: 'Ошибка сервера' });
   }
 });
 
 app.post('/api/login', async (req, res) => {
   const { email, password } = req.body;
+  
+  if (!email || !password) {
+    return res.status(400).json({ error: 'Заполните все поля' });
+  }
 
   db.get('SELECT * FROM users WHERE email = ?', [email], async (err, user) => {
     if (err || !user) {
-      return res.status(401).json({ error: 'Неверный email или пароль' });
+      return res.status(401).json({ error: 'Неверные учетные данные' });
     }
 
     const valid = await bcrypt.compare(password, user.password);
     if (!valid) {
-      return res.status(401).json({ error: 'Неверный email или пароль' });
+      return res.status(401).json({ error: 'Неверные учетные данные' });
     }
 
-    const token = jwt.sign({ id: user.id, email: user.email }, JWT_SECRET, { expiresIn: '7d' });
-    res.cookie('token', token, { httpOnly: true, secure: process.env.NODE_ENV === 'production' });
-    res.json({ token });
+    const token = jwt.sign(
+      { id: user.id, email: user.email },
+      JWT_SECRET,
+      { expiresIn: '7d' }
+    );
+
+    res.json({ 
+      token,
+      user: {
+        id: user.id,
+        email: user.email,
+        fullname: user.fullname,
+        institution: user.institution
+      }
+    });
   });
 });
 
+// Profile routes
 app.get('/api/profile', authenticate, (req, res) => {
   db.get(
     `SELECT fullname, email, institution FROM users WHERE id = ?`,
     [req.user.id],
     (err, row) => {
-      if (err) return res.status(500).json({ error: err.message });
+      if (err) return res.status(500).json({ error: 'Ошибка сервера' });
       if (!row) return res.status(404).json({ error: 'Пользователь не найден' });
       res.json(row);
     }
   );
 });
 
+// Articles routes
 app.get('/api/articles', (req, res) => {
-  const { page = 1, limit = 5, q = '' } = req.query;
+  const { page = 1, limit = 10, q = '' } = req.query;
   const offset = (page - 1) * limit;
 
   db.all(
@@ -146,13 +183,13 @@ app.get('/api/articles', (req, res) => {
      LIMIT ? OFFSET ?`,
     [`%${q}%`, `%${q}%`, limit, offset],
     (err, articles) => {
-      if (err) return res.status(500).json({ error: err.message });
+      if (err) return res.status(500).json({ error: 'Ошибка сервера' });
       
       db.get(
         `SELECT COUNT(*) as total FROM articles WHERE title LIKE ? OR abstract LIKE ?`,
         [`%${q}%`, `%${q}%`],
         (err, count) => {
-          if (err) return res.status(500).json({ error: err.message });
+          if (err) return res.status(500).json({ error: 'Ошибка сервера' });
           res.json({ 
             articles,
             total: count.total,
@@ -165,13 +202,98 @@ app.get('/api/articles', (req, res) => {
   );
 });
 
-// Остальные маршруты остаются без изменений (как в вашем исходном файле)
+app.get('/api/articles/:id', (req, res) => {
+  const articleId = req.params.id;
+  
+  db.get(
+    `SELECT * FROM articles WHERE id = ?`,
+    [articleId],
+    (err, article) => {
+      if (err) return res.status(500).json({ error: 'Ошибка сервера' });
+      if (!article) return res.status(404).json({ error: 'Статья не найдена' });
+      res.json(article);
+    }
+  );
+});
+
+app.post('/api/articles', authenticate, (req, res) => {
+  const { title, author, abstract, keywords, content, bibliography } = req.body;
+  
+  if (!title || !author || !abstract || !keywords || !content) {
+    return res.status(400).json({ error: 'Заполните все обязательные поля' });
+  }
+  
+  db.run(
+    `INSERT INTO articles 
+     (title, author, abstract, keywords, content, bibliography, user_id) 
+     VALUES (?, ?, ?, ?, ?, ?, ?)`,
+    [title, author, abstract, keywords, content, bibliography || '', req.user.id],
+    function(err) {
+      if (err) {
+        console.error('Ошибка при добавлении статьи:', err);
+        return res.status(500).json({ error: 'Ошибка при публикации статьи' });
+      }
+      res.status(201).json({ 
+        id: this.lastID,
+        message: 'Статья успешно опубликована'
+      });
+    }
+  );
+});
+
+// Comments routes
+app.get('/api/articles/:id/comments', (req, res) => {
+  const articleId = req.params.id;
+  
+  db.all(
+    `SELECT c.*, u.fullname as author_name 
+     FROM comments c
+     JOIN users u ON c.user_id = u.id
+     WHERE c.article_id = ?
+     ORDER BY c.created_at DESC`,
+    [articleId],
+    (err, comments) => {
+      if (err) return res.status(500).json({ error: 'Ошибка сервера' });
+      res.json(comments);
+    }
+  );
+});
+
+app.post('/api/comments', authenticate, (req, res) => {
+  const { article_id, content } = req.body;
+  
+  if (!content || !article_id) {
+    return res.status(400).json({ error: 'Необходимы article_id и content' });
+  }
+
+  db.run(
+    `INSERT INTO comments (article_id, user_id, content)
+     VALUES (?, ?, ?)`,
+    [article_id, req.user.id, content],
+    function(err) {
+      if (err) return res.status(500).json({ error: 'Ошибка сервера' });
+      
+      db.get(
+        `SELECT c.*, u.fullname as author_name 
+         FROM comments c
+         JOIN users u ON c.user_id = u.id
+         WHERE c.id = ?`,
+        [this.lastID],
+        (err, comment) => {
+          if (err) return res.status(500).json({ error: 'Ошибка сервера' });
+          res.status(201).json(comment);
+        }
+      );
+    }
+  );
+});
 
 // Serve frontend
 app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
+// Start server
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
 });
