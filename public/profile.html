@@ -1,81 +1,59 @@
 <!DOCTYPE html>
 <html lang="ru">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Личный кабинет</title>
-  <link rel="stylesheet" href="style.css">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Профиль пользователя</title>
+    <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <header class="header">
-    <div class="container">
-      <h1 class="logo">Научные Публикации</h1>
-      <nav class="nav">
-        <a href="index.html">Главная</a>
-        <a href="articles.html">Статьи</a>
-        <a href="add_article.html">Добавить статью</a>
-        <a href="profile.html" class="active">Личный кабинет</a>
-      </nav>
-    </div>
-  </header>
+    <header>
+        <h1>Профиль пользователя</h1>
+        <nav>
+            <ul>
+                <li><a href="index.html">Главная</a></li>
+                <li><a href="articles.html">Статьи</a></li>
+                <li><a href="add_article.html">Добавить статью</a></li>
+                <li><a href="profile.html">Профиль</a></li>
+                <li><a href="#" id="logoutBtn">Выйти</a></li>
+            </ul>
+        </nav>
+    </header>
 
-  <main class="container">
-    <section class="profile-section">
-      <h2>Личный кабинет</h2>
-      
-      <div class="profile-info">
-        <div class="info-item">
-          <span class="label">ФИО:</span>
-          <span id="profileName" class="value">Загрузка...</span>
+    <main>
+        <div class="card">
+            <div class="profile-header">
+                <div class="profile-avatar" id="userAvatar">
+                    <!-- Аватар будет добавлен через JS -->
+                </div>
+                <div class="profile-info">
+                    <h2 id="userName"></h2>
+                    <p id="userEmail"></p>
+                    <p id="userInstitution"></p>
+                    <div class="profile-stats">
+                        <div>
+                            <strong id="articlesCount">0</strong>
+                            <span>статей</span>
+                        </div>
+                        <div>
+                            <strong id="memberSince"></strong>
+                            <span>на сайте</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
         </div>
-        <div class="info-item">
-          <span class="label">Email:</span>
-          <span id="profileEmail" class="value">Загрузка...</span>
+
+        <h2 style="margin: 2rem 0 1rem;">Мои статьи</h2>
+        <div class="articles-grid" id="userArticles">
+            <!-- Статьи будут загружены через JS -->
         </div>
-        <div class="info-item">
-          <span class="label">Учреждение:</span>
-          <span id="profileInstitution" class="value">Загрузка...</span>
-        </div>
-      </div>
+    </main>
 
-      <button id="logoutBtn" class="logout-btn">Выйти из аккаунта</button>
-    </section>
-  </main>
+    <footer>
+        <p>&copy; 2023 Платформа научных публикаций. Все права защищены.</p>
+    </footer>
 
-  <script src="script.js"></script>
-  <script>
-    document.addEventListener('DOMContentLoaded', async () => {
-      const token = localStorage.getItem('token');
-      if (!token) {
-        window.location.href = 'login.html';
-        return;
-      }
-
-      try {
-        const response = await fetch(`${API_BASE}/api/profile`, {
-          headers: {
-            'Authorization': `Bearer ${token}`
-          }
-        });
-        
-        if (!response.ok) throw new Error('Ошибка загрузки профиля');
-        
-        const profile = await response.json();
-        
-        document.getElementById('profileName').textContent = profile.fullname;
-        document.getElementById('profileEmail').textContent = profile.email;
-        document.getElementById('profileInstitution').textContent = 
-          profile.institution || 'Не указано';
-      } catch (error) {
-        console.error('Ошибка:', error);
-        alert('Не удалось загрузить данные профиля');
-      }
-
-      document.getElementById('logoutBtn').addEventListener('click', () => {
-        localStorage.removeItem('token');
-        window.location.href = 'index.html';
-      });
-    });
-  </script>
+    <script src="script.js"></script>
 </body>
 </html>
