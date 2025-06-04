@@ -7,10 +7,10 @@
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <header class="main-header">
-    <div class="header-container">
-      <h1 class="logo">Научные публикации</h1>
-      <nav class="main-nav">
+  <header class="header">
+    <div class="container">
+      <h1 class="logo">Научные Публикации</h1>
+      <nav class="nav">
         <a href="index.html">Главная</a>
         <a href="articles.html">Статьи</a>
         <a href="add_article.html">Добавить статью</a>
@@ -22,58 +22,56 @@
   <main class="container">
     <section class="profile-section">
       <h2>Личный кабинет</h2>
+      
       <div class="profile-info">
         <div class="info-item">
           <span class="label">ФИО:</span>
-          <span id="profileName" class="value"></span>
+          <span id="profileName" class="value">Загрузка...</span>
         </div>
         <div class="info-item">
           <span class="label">Email:</span>
-          <span id="profileEmail" class="value"></span>
+          <span id="profileEmail" class="value">Загрузка...</span>
         </div>
         <div class="info-item">
           <span class="label">Учреждение:</span>
-          <span id="profileInstitution" class="value"></span>
+          <span id="profileInstitution" class="value">Загрузка...</span>
         </div>
       </div>
+
       <button id="logoutBtn" class="logout-btn">Выйти из аккаунта</button>
     </section>
   </main>
 
-  <footer class="main-footer">
-    <p>&copy; 2023 Платформа научных публикаций</p>
-  </footer>
-
   <script src="script.js"></script>
   <script>
-    document.addEventListener('DOMContentLoaded', function() {
+    document.addEventListener('DOMContentLoaded', async () => {
       const token = localStorage.getItem('token');
       if (!token) {
         window.location.href = 'login.html';
         return;
       }
 
-      // Получаем данные пользователя
-      fetch(`${API_BASE}/api/profile`, {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      })
-      .then(response => response.json())
-      .then(data => {
-        if (data.error) throw new Error(data.error);
+      try {
+        const response = await fetch(`${API_BASE}/api/profile`, {
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        });
         
-        document.getElementById('profileName').textContent = data.fullname;
-        document.getElementById('profileEmail').textContent = data.email;
-        document.getElementById('profileInstitution').textContent = data.institution || 'Не указано';
-      })
-      .catch(error => {
+        if (!response.ok) throw new Error('Ошибка загрузки профиля');
+        
+        const profile = await response.json();
+        
+        document.getElementById('profileName').textContent = profile.fullname;
+        document.getElementById('profileEmail').textContent = profile.email;
+        document.getElementById('profileInstitution').textContent = 
+          profile.institution || 'Не указано';
+      } catch (error) {
         console.error('Ошибка:', error);
         alert('Не удалось загрузить данные профиля');
-      });
+      }
 
-      // Выход из аккаунта
-      document.getElementById('logoutBtn').addEventListener('click', function() {
+      document.getElementById('logoutBtn').addEventListener('click', () => {
         localStorage.removeItem('token');
         window.location.href = 'index.html';
       });

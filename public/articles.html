@@ -3,14 +3,25 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Научные статьи</title>
+  <title>Статьи</title>
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <!-- Шапка (как в предыдущих примерах) -->
+  <header class="header">
+    <div class="container">
+      <h1 class="logo">Научные Публикации</h1>
+      <nav class="nav">
+        <a href="index.html">Главная</a>
+        <a href="articles.html" class="active">Статьи</a>
+        <a href="add_article.html">Добавить статью</a>
+        <div class="auth-links"></div>
+      </nav>
+    </div>
+  </header>
+
   <main class="container">
     <section class="articles-section">
-      <h2>Все научные статьи</h2>
+      <h2>Все статьи</h2>
       
       <div class="search-box">
         <input type="text" id="searchInput" placeholder="Поиск по статьям...">
@@ -18,13 +29,13 @@
       </div>
 
       <div id="articlesList">
-        <!-- Статьи будут загружаться здесь -->
+        <div class="loading">Загрузка статей...</div>
       </div>
 
-      <div id="pagination" class="pagination">
-        <button id="prevBtn">Назад</button>
+      <div class="pagination">
+        <button id="prevBtn" disabled>← Назад</button>
         <span id="pageInfo">Страница 1</span>
-        <button id="nextBtn">Вперед</button>
+        <button id="nextBtn">Вперед →</button>
       </div>
     </section>
   </main>
@@ -40,39 +51,41 @@
         const response = await fetch(
           `${API_BASE}/api/articles?page=${currentPage}&limit=${articlesPerPage}&q=${searchQuery}`
         );
+        
+        if (!response.ok) throw new Error('Ошибка загрузки статей');
+        
         const data = await response.json();
-
-        if (!response.ok) throw new Error(data.error || 'Ошибка загрузки');
-
         const articlesList = document.getElementById('articlesList');
-        articlesList.innerHTML = '';
-
+        
         if (data.articles.length === 0) {
           articlesList.innerHTML = '<p class="no-articles">Статьи не найдены</p>';
           return;
         }
 
-        data.articles.forEach(article => {
-          const articleEl = document.createElement('article');
-          articleEl.className = 'article-card';
-          articleEl.innerHTML = `
+        articlesList.innerHTML = data.articles.map(article => `
+          <article class="article-card">
             <h3><a href="article.html?id=${article.id}">${article.title}</a></h3>
-            <p class="meta">Автор: ${article.author} | ${new Date(article.created_at).toLocaleDateString()}</p>
+            <div class="meta">
+              <span>Автор: ${article.author}</span>
+              <span>${new Date(article.created_at).toLocaleDateString()}</span>
+            </div>
             <p class="abstract">${article.abstract}</p>
-            <a href="article.html?id=${article.id}" class="read-more">Читать полностью</a>
-            <div class="comments-count">Комментарии: ${article.comments_count || 0}</div>
-          `;
-          articlesList.appendChild(articleEl);
-        });
+            <div class="footer">
+              <a href="article.html?id=${article.id}" class="read-more">Читать полностью</a>
+              <span class="comments-count">Комментарии: ${article.comments_count}</span>
+            </div>
+          </article>
+        `).join('');
 
         // Обновляем пагинацию
         document.getElementById('pageInfo').textContent = `Страница ${currentPage}`;
         document.getElementById('prevBtn').disabled = currentPage === 1;
         document.getElementById('nextBtn').disabled = data.articles.length < articlesPerPage;
+
       } catch (error) {
         console.error('Ошибка:', error);
         document.getElementById('articlesList').innerHTML = `
-          <p class="error">Ошибка загрузки статей: ${error.message}</p>
+          <p class="error">Ошибка загрузки: ${error.message}</p>
         `;
       }
     }

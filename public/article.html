@@ -7,20 +7,30 @@
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <!-- Шапка (как в предыдущих примерах) -->
-  
+  <header class="header">
+    <div class="container">
+      <h1 class="logo">Научные Публикации</h1>
+      <nav class="nav">
+        <a href="index.html">Главная</a>
+        <a href="articles.html">Статьи</a>
+        <a href="add_article.html">Добавить статью</a>
+        <div class="auth-links"></div>
+      </nav>
+    </div>
+  </header>
+
   <main class="container">
-    <article class="full-article" id="articleContent">
-      <!-- Контент статьи будет загружен здесь -->
+    <article id="articleContainer" class="full-article">
+      <div class="loading">Загрузка статьи...</div>
     </article>
 
     <section class="comments-section">
       <h3>Комментарии</h3>
-      <div id="commentsList"></div>
+      <div id="commentsList" class="comments-list"></div>
       
       <form id="commentForm" class="comment-form">
         <textarea id="commentText" placeholder="Ваш комментарий..." required></textarea>
-        <button type="submit">Отправить</button>
+        <button type="submit">Отправить комментарий</button>
       </form>
     </section>
   </main>
@@ -34,23 +44,30 @@
         return;
       }
 
-      // Загрузка статьи
       try {
+        // Загружаем статью и комментарии параллельно
         const [articleRes, commentsRes] = await Promise.all([
           fetch(`${API_BASE}/api/articles/${articleId}`),
           fetch(`${API_BASE}/api/articles/${articleId}/comments`)
         ]);
 
+        if (!articleRes.ok || !commentsRes.ok) {
+          throw new Error('Ошибка загрузки данных');
+        }
+
         const article = await articleRes.json();
         const comments = await commentsRes.json();
 
         // Отображаем статью
-        document.getElementById('articleContent').innerHTML = `
+        document.getElementById('articleContainer').innerHTML = `
           <h2>${article.title}</h2>
-          <p class="meta">Автор: ${article.author} | ${new Date(article.created_at).toLocaleDateString()}</p>
+          <div class="meta">
+            <span>Автор: ${article.author}</span>
+            <span>${new Date(article.created_at).toLocaleDateString()}</span>
+          </div>
           <h3>Аннотация</h3>
           <p class="abstract">${article.abstract}</p>
-          <h3>Основной текст</h3>
+          <h3>Содержание</h3>
           <div class="content">${article.content.replace(/\n/g, '<br>')}</div>
         `;
 
@@ -63,33 +80,37 @@
                 <strong>${comment.author_name}</strong>
                 <span>${new Date(comment.created_at).toLocaleString()}</span>
               </div>
-              <div class="comment-text">${comment.content}</div>
+              <p class="comment-text">${comment.content}</p>
             </div>
           `).join('');
         } else {
           commentsList.innerHTML = '<p>Пока нет комментариев. Будьте первым!</p>';
         }
+
       } catch (error) {
         console.error('Ошибка:', error);
-        document.getElementById('articleContent').innerHTML = `
-          <p class="error">Ошибка загрузки статьи</p>
-          <a href="articles.html">Вернуться к списку статей</a>
+        document.getElementById('articleContainer').innerHTML = `
+          <div class="error">
+            <p>Ошибка загрузки статьи: ${error.message}</p>
+            <a href="articles.html">← Вернуться к списку статей</a>
+          </div>
         `;
       }
 
-      // Обработка отправки комментария
+      // Обработка формы комментария
       document.getElementById('commentForm').addEventListener('submit', async (e) => {
         e.preventDefault();
         
         const token = localStorage.getItem('token');
         if (!token) {
-          alert('Для комментариев необходимо войти в систему');
-          window.location.href = 'login.html';
+          alert('Для комментирования необходимо войти в систему');
+          window.location.href = 'login.html?redirect=' + encodeURIComponent(window.location.href);
           return;
         }
 
-        const commentText = document.getElementById('commentText').value;
-        
+        const commentText = document.getElementById('commentText').value.trim();
+        if (!commentText) return;
+
         try {
           const response = await fetch(`${API_BASE}/api/comments`, {
             method: 'POST',
@@ -105,11 +126,26 @@
 
           if (!response.ok) throw new Error('Ошибка отправки комментария');
           
+          // Очищаем поле и обновляем комментарии
           document.getElementById('commentText').value = '';
-          location.reload(); // Обновляем страницу для показа нового комментария
+          const commentsRes = await fetch(`${API_BASE}/api/articles/${articleId}/comments`);
+          const comments = await commentsRes.json();
+          
+          // Обновляем список комментариев
+          const commentsList = document.getElementById('commentsList');
+          commentsList.innerHTML = comments.map(comment => `
+            <div class="comment">
+              <div class="comment-header">
+                <strong>${comment.author_name}</strong>
+                <span>${new Date(comment.created_at).toLocaleString()}</span>
+              </div>
+              <p class="comment-text">${comment.content}</p>
+            </div>
+          `).join('');
+
         } catch (error) {
           console.error('Ошибка:', error);
-          alert('Не удалось отправить комментарий');
+          alert('Не удалось отправить комментарий: ' + error.message);
         }
       });
     });
