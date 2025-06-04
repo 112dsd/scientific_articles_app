@@ -3,13 +3,13 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Личный Кабинет</title>
+  <title>Личный кабинет</title>
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
   <header class="header">
-    <div class="container header-container">
-      <a href="index.html" class="logo">Научные Публикации</a>
+    <div class="container">
+      <h1 class="logo">Научные Публикации</h1>
       <nav class="nav">
         <a href="index.html">Главная</a>
         <a href="articles.html">Статьи</a>
@@ -19,42 +19,63 @@
     </div>
   </header>
 
-  <main class="main">
-    <div class="container">
-      <div class="card">
-        <h2>Личный кабинет</h2>
-        
-        <div class="profile-info">
-          <div class="form-group">
-            <label>ФИО:</label>
-            <div class="form-control" style="background: var(--light);" id="profileName">Загрузка...</div>
-          </div>
-          
-          <div class="form-group">
-            <label>Email:</label>
-            <div class="form-control" style="background: var(--light);" id="profileEmail">Загрузка...</div>
-          </div>
-          
-          <div class="form-group">
-            <label>Учреждение:</label>
-            <div class="form-control" style="background: var(--light);" id="profileInstitution">Загрузка...</div>
-          </div>
-          
-          <button id="logoutBtn" class="btn btn-danger">Выйти из аккаунта</button>
+  <main class="container">
+    <section class="profile-section">
+      <h2>Личный кабинет</h2>
+      
+      <div class="profile-info">
+        <div class="info-item">
+          <span class="label">ФИО:</span>
+          <span id="profileName" class="value">Загрузка...</span>
+        </div>
+        <div class="info-item">
+          <span class="label">Email:</span>
+          <span id="profileEmail" class="value">Загрузка...</span>
+        </div>
+        <div class="info-item">
+          <span class="label">Учреждение:</span>
+          <span id="profileInstitution" class="value">Загрузка...</span>
         </div>
       </div>
-    </div>
-  </main>
 
-  <footer class="footer">
-    <div class="container">
-      <p>&copy; 2023 Платформа научных публикаций. Все права защищены.</p>
-    </div>
-  </footer>
+      <button id="logoutBtn" class="logout-btn">Выйти из аккаунта</button>
+    </section>
+  </main>
 
   <script src="script.js"></script>
   <script>
-    // Код для загрузки профиля (как в предыдущем примере)
+    document.addEventListener('DOMContentLoaded', async () => {
+      const token = localStorage.getItem('token');
+      if (!token) {
+        window.location.href = 'login.html';
+        return;
+      }
+
+      try {
+        const response = await fetch(`${API_BASE}/api/profile`, {
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        });
+        
+        if (!response.ok) throw new Error('Ошибка загрузки профиля');
+        
+        const profile = await response.json();
+        
+        document.getElementById('profileName').textContent = profile.fullname;
+        document.getElementById('profileEmail').textContent = profile.email;
+        document.getElementById('profileInstitution').textContent = 
+          profile.institution || 'Не указано';
+      } catch (error) {
+        console.error('Ошибка:', error);
+        alert('Не удалось загрузить данные профиля');
+      }
+
+      document.getElementById('logoutBtn').addEventListener('click', () => {
+        localStorage.removeItem('token');
+        window.location.href = 'index.html';
+      });
+    });
   </script>
 </body>
 </html>

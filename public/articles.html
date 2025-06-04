@@ -3,13 +3,13 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Научные Статьи</title>
+  <title>Статьи</title>
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
   <header class="header">
-    <div class="container header-container">
-      <a href="index.html" class="logo">Научные Публикации</a>
+    <div class="container">
+      <h1 class="logo">Научные Публикации</h1>
       <nav class="nav">
         <a href="index.html">Главная</a>
         <a href="articles.html" class="active">Статьи</a>
@@ -19,37 +19,98 @@
     </div>
   </header>
 
-  <main class="main">
-    <div class="container">
-      <div class="card">
-        <h2>Все научные статьи</h2>
-        <div class="search-box" style="margin: 1rem 0;">
-          <input type="text" id="searchInput" class="form-control" placeholder="Поиск по статьям...">
-          <button id="searchBtn" class="btn btn-primary" style="margin-top: 0.5rem;">Найти</button>
-        </div>
+  <main class="container">
+    <section class="articles-section">
+      <h2>Все статьи</h2>
+      
+      <div class="search-box">
+        <input type="text" id="searchInput" placeholder="Поиск по статьям...">
+        <button id="searchBtn">Поиск</button>
       </div>
 
-      <div id="articlesList" class="articles-list">
-        <!-- Статьи будут загружены здесь -->
+      <div id="articlesList">
+        <div class="loading">Загрузка статей...</div>
       </div>
 
-      <div class="pagination" style="display: flex; justify-content: center; gap: 1rem; margin: 2rem 0;">
-        <button id="prevBtn" class="btn btn-secondary" disabled>Назад</button>
-        <span id="pageInfo" style="display: flex; align-items: center;">Страница 1</span>
-        <button id="nextBtn" class="btn btn-secondary">Вперед</button>
+      <div class="pagination">
+        <button id="prevBtn" disabled>← Назад</button>
+        <span id="pageInfo">Страница 1</span>
+        <button id="nextBtn">Вперед →</button>
       </div>
-    </div>
+    </section>
   </main>
-
-  <footer class="footer">
-    <div class="container">
-      <p>&copy; 2023 Платформа научных публикаций. Все права защищены.</p>
-    </div>
-  </footer>
 
   <script src="script.js"></script>
   <script>
-    // Код для загрузки статей (как в предыдущем примере)
+    let currentPage = 1;
+    const articlesPerPage = 5;
+
+    async function loadArticles() {
+      try {
+        const searchQuery = document.getElementById('searchInput').value;
+        const response = await fetch(
+          `${API_BASE}/api/articles?page=${currentPage}&limit=${articlesPerPage}&q=${searchQuery}`
+        );
+        
+        if (!response.ok) throw new Error('Ошибка загрузки статей');
+        
+        const data = await response.json();
+        const articlesList = document.getElementById('articlesList');
+        
+        if (data.articles.length === 0) {
+          articlesList.innerHTML = '<p class="no-articles">Статьи не найдены</p>';
+          return;
+        }
+
+        articlesList.innerHTML = data.articles.map(article => `
+          <article class="article-card">
+            <h3><a href="article.html?id=${article.id}">${article.title}</a></h3>
+            <div class="meta">
+              <span>Автор: ${article.author}</span>
+              <span>${new Date(article.created_at).toLocaleDateString()}</span>
+            </div>
+            <p class="abstract">${article.abstract}</p>
+            <div class="footer">
+              <a href="article.html?id=${article.id}" class="read-more">Читать полностью</a>
+              <span class="comments-count">Комментарии: ${article.comments_count}</span>
+            </div>
+          </article>
+        `).join('');
+
+        // Обновляем пагинацию
+        document.getElementById('pageInfo').textContent = `Страница ${currentPage}`;
+        document.getElementById('prevBtn').disabled = currentPage === 1;
+        document.getElementById('nextBtn').disabled = data.articles.length < articlesPerPage;
+
+      } catch (error) {
+        console.error('Ошибка:', error);
+        document.getElementById('articlesList').innerHTML = `
+          <p class="error">Ошибка загрузки: ${error.message}</p>
+        `;
+      }
+    }
+
+    // Инициализация
+    document.addEventListener('DOMContentLoaded', () => {
+      loadArticles();
+
+      document.getElementById('searchBtn').addEventListener('click', () => {
+        currentPage = 1;
+        loadArticles();
+      });
+
+      document.getElementById('prevBtn').addEventListener('click', () => {
+        if (currentPage > 1) {
+          currentPage--;
+          loadArticles();
+        }
+      });
+
+      document.getElementById('nextBtn').addEventListener('click', () => {
+        currentPage++;
+        loadArticles();
+      });
+    });
   </script>
 </body>
 </html>
