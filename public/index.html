@@ -3,31 +3,54 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Платформа научных публикаций</title>
+  <title>Главная | Научные публикации</title>
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <header>
-    <h1>Платформа научных публикаций</h1>
-    <nav>
-      <a href="articles.html">Статьи</a>
-      <a href="login.html">Вход</a>
-      <a href="register.html">Регистрация</a>
-    </nav>
+  <header class="main-header">
+    <div class="header-container">
+      <h1 class="logo">Научные публикации</h1>
+      <nav class="main-nav">
+        <a href="index.html" class="active">Главная</a>
+        <a href="articles.html">Статьи</a>
+        <a href="add_article.html">Добавить статью</a>
+        <div class="auth-links"></div>
+      </nav>
+    </div>
   </header>
-  <main>
-    <section class="welcome-section">
-      <h2>Добро пожаловать!</h2>
-      <p>Публикуйте и читайте научные статьи вместе с коллегами</p>
-      <div class="cta-buttons">
-        <a href="register.html" class="btn">Зарегистрироваться</a>
-        <a href="articles.html" class="btn">Посмотреть статьи</a>
+
+  <main class="container">
+    <section class="hero-section">
+      <div class="hero-content">
+        <h2>Платформа для научных публикаций</h2>
+        <p>Публикуйте, изучайте и обсуждайте научные работы с коллегами</p>
+        <div class="hero-buttons">
+          <a href="articles.html" class="btn primary">Читать статьи</a>
+          <a href="add_article.html" class="btn secondary">Опубликовать работу</a>
+        </div>
+      </div>
+    </section>
+
+    <section class="features-section">
+      <div class="feature-card">
+        <h3>Публикация</h3>
+        <p>Размещайте свои научные работы для широкого круга читателей</p>
+      </div>
+      <div class="feature-card">
+        <h3>Обсуждение</h3>
+        <p>Получайте обратную связь от научного сообщества</p>
+      </div>
+      <div class="feature-card">
+        <h3>Поиск</h3>
+        <p>Находите интересные исследования в вашей области</p>
       </div>
     </section>
   </main>
-  <footer>
+
+  <footer class="main-footer">
     <p>&copy; 2023 Платформа научных публикаций</p>
   </footer>
+
   <script src="script.js"></script>
 </body>
 </html>

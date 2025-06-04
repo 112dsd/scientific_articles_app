@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Просмотр статьи</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <!-- Шапка (как в предыдущих примерах) -->
+  
+  <main class="container">
+    <article class="full-article" id="articleContent">
+      <!-- Контент статьи будет загружен здесь -->
+    </article>
+
+    <section class="comments-section">
+      <h3>Комментарии</h3>
+      <div id="commentsList"></div>
+      
+      <form id="commentForm" class="comment-form">
+        <textarea id="commentText" placeholder="Ваш комментарий..." required></textarea>
+        <button type="submit">Отправить</button>
+      </form>
+    </section>
+  </main>
+
+  <script src="script.js"></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', async () => {
+      const articleId = new URLSearchParams(window.location.search).get('id');
+      if (!articleId) {
+        window.location.href = 'articles.html';
+        return;
+      }
+
+      // Загрузка статьи
+      try {
+        const [articleRes, commentsRes] = await Promise.all([
+          fetch(`${API_BASE}/api/articles/${articleId}`),
+          fetch(`${API_BASE}/api/articles/${articleId}/comments`)
+        ]);
+
+        const article = await articleRes.json();
+        const comments = await commentsRes.json();
+
+        // Отображаем статью
+        document.getElementById('articleContent').innerHTML = `
+          <h2>${article.title}</h2>
+          <p class="meta">Автор: ${article.author} | ${new Date(article.created_at).toLocaleDateString()}</p>
+          <h3>Аннотация</h3>
+          <p class="abstract">${article.abstract}</p>
+          <h3>Основной текст</h3>
+          <div class="content">${article.content.replace(/\n/g, '<br>')}</div>
+        `;
+
+        // Отображаем комментарии
+        const commentsList = document.getElementById('commentsList');
+        if (comments.length > 0) {
+          commentsList.innerHTML = comments.map(comment => `
+            <div class="comment">
+              <div class="comment-header">
+                <strong>${comment.author_name}</strong>
+                <span>${new Date(comment.created_at).toLocaleString()}</span>
+              </div>
+              <div class="comment-text">${comment.content}</div>
+            </div>
+          `).join('');
+        } else {
+          commentsList.innerHTML = '<p>Пока нет комментариев. Будьте первым!</p>';
+        }
+      } catch (error) {
+        console.error('Ошибка:', error);
+        document.getElementById('articleContent').innerHTML = `
+          <p class="error">Ошибка загрузки статьи</p>
+          <a href="articles.html">Вернуться к списку статей</a>
+        `;
+      }
+
+      // Обработка отправки комментария
+      document.getElementById('commentForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        
+        const token = localStorage.getItem('token');
+        if (!token) {
+          alert('Для комментариев необходимо войти в систему');
+          window.location.href = 'login.html';
+          return;
+        }
+
+        const commentText = document.getElementById('commentText').value;
+        
+        try {
+          const response = await fetch(`${API_BASE}/api/comments`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${token}`
+            },
+            body: JSON.stringify({
+              article_id: articleId,
+              content: commentText
+            })
+          });
+
+          if (!response.ok) throw new Error('Ошибка отправки комментария');
+          
+          document.getElementById('commentText').value = '';
+          location.reload(); // Обновляем страницу для показа нового комментария
+        } catch (error) {
+          console.error('Ошибка:', error);
+          alert('Не удалось отправить комментарий');
+        }
+      });
+    });
+  </script>
+</body>
+</html>

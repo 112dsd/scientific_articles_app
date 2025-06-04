@@ -1,3 +1,57 @@
+// Добавляем в начало файла
+function updateHeaderAuth() {
+  const token = localStorage.getItem('token');
+  const authLinks = document.querySelectorAll('.auth-links');
+  
+  authLinks.forEach(container => {
+    if (token) {
+      container.innerHTML = '<a href="profile.html">Личный кабинет</a>';
+    } else {
+      container.innerHTML = `
+        <a href="login.html">Вход</a>
+        <a href="register.html">Регистрация</a>
+      `;
+    }
+  });
+}
+
+// Вызываем при загрузке каждой страницы
+document.addEventListener('DOMContentLoaded', updateHeaderAuth);
+
+// Обновляем функцию загрузки статей
+function loadArticles(page = 1, search = '', sort = 'newest') {
+  const articlesList = document.getElementById('articlesList');
+  if (!articlesList) return;
+  
+  articlesList.innerHTML = '<div class="loading">Загрузка статей...</div>';
+  
+  fetch(`${API_BASE}/api/articles?page=${page}&q=${search}&sort=${sort}`)
+    .then(response => response.json())
+    .then(data => {
+      if (data.error) throw new Error(data.error);
+      
+      if (data.articles.length === 0) {
+        articlesList.innerHTML = '<div class="no-articles">Статьи не найдены</div>';
+        return;
+      }
+      
+      articlesList.innerHTML = data.articles.map(article => `
+        <article class="article-card">
+          <h3><a href="article.html?id=${article.id}">${article.title}</a></h3>
+          <div class="article-meta">
+            <span>Автор: ${article.author}</span>
+            <span>${new Date(article.created_at).toLocaleDateString()}</span>
+          </div>
+          <p class="article-abstract">${article.abstract}</p>
+          <a href="article.html?id=${article.id}" class="read-more">Читать полностью</a>
+        </article>
+      `).join('');
+    })
+    .catch(error => {
+      console.error('Ошибка загрузки статей:', error);
+      articlesList.innerHTML = `<div class="error">Ошибка: ${error.message}</div>`;
+    });
+}
 const API_BASE = window.location.origin;
 let currentUser = null;
 

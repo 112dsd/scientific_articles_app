@@ -3,134 +3,100 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Научные статьи | Платформа публикаций</title>
+  <title>Научные статьи</title>
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <header>
-    <h1>Платформа научных публикаций</h1>
-    <nav>
-      <a href="index.html">Главная</a>
-      <a href="add_article.html">Добавить статью</a>
-      <a href="login.html">Личный кабинет</a>
-    </nav>
-  </header>
-  <main>
-    <section class="articles-container">
-      <div class="articles-header">
-        <h2>Все научные статьи</h2>
-        <div class="search-box">
-          <input type="text" id="searchInput" placeholder="Поиск по статьям...">
-          <button id="searchButton">Найти</button>
-        </div>
+  <!-- Шапка (как в предыдущих примерах) -->
+  <main class="container">
+    <section class="articles-section">
+      <h2>Все научные статьи</h2>
+      
+      <div class="search-box">
+        <input type="text" id="searchInput" placeholder="Поиск по статьям...">
+        <button id="searchBtn">Поиск</button>
       </div>
 
-      <div class="articles-filter">
-        <label for="sortSelect">Сортировка:</label>
-        <select id="sortSelect">
-          <option value="newest">Сначала новые</option>
-          <option value="oldest">Сначала старые</option>
-          <option value="title">По названию</option>
-        </select>
+      <div id="articlesList">
+        <!-- Статьи будут загружаться здесь -->
       </div>
 
-      <div id="articlesList" class="articles-list">
-        <!-- Статьи будут загружаться здесь через JavaScript -->
-        <div class="loading-message">Загрузка статей...</div>
-      </div>
-
-      <div class="pagination">
-        <button id="prevPage" disabled>Назад</button>
+      <div id="pagination" class="pagination">
+        <button id="prevBtn">Назад</button>
         <span id="pageInfo">Страница 1</span>
-        <button id="nextPage">Вперед</button>
+        <button id="nextBtn">Вперед</button>
       </div>
     </section>
   </main>
-  <footer>
-    <p>&copy; 2023 Платформа научных публикаций. Все права защищены.</p>
-  </footer>
 
   <script src="script.js"></script>
   <script>
-    document.addEventListener('DOMContentLoaded', function() {
-      // Загрузка статей при открытии страницы
+    let currentPage = 1;
+    const articlesPerPage = 5;
+
+    async function loadArticles() {
+      try {
+        const searchQuery = document.getElementById('searchInput').value;
+        const response = await fetch(
+          `${API_BASE}/api/articles?page=${currentPage}&limit=${articlesPerPage}&q=${searchQuery}`
+        );
+        const data = await response.json();
+
+        if (!response.ok) throw new Error(data.error || 'Ошибка загрузки');
+
+        const articlesList = document.getElementById('articlesList');
+        articlesList.innerHTML = '';
+
+        if (data.articles.length === 0) {
+          articlesList.innerHTML = '<p class="no-articles">Статьи не найдены</p>';
+          return;
+        }
+
+        data.articles.forEach(article => {
+          const articleEl = document.createElement('article');
+          articleEl.className = 'article-card';
+          articleEl.innerHTML = `
+            <h3><a href="article.html?id=${article.id}">${article.title}</a></h3>
+            <p class="meta">Автор: ${article.author} | ${new Date(article.created_at).toLocaleDateString()}</p>
+            <p class="abstract">${article.abstract}</p>
+            <a href="article.html?id=${article.id}" class="read-more">Читать полностью</a>
+            <div class="comments-count">Комментарии: ${article.comments_count || 0}</div>
+          `;
+          articlesList.appendChild(articleEl);
+        });
+
+        // Обновляем пагинацию
+        document.getElementById('pageInfo').textContent = `Страница ${currentPage}`;
+        document.getElementById('prevBtn').disabled = currentPage === 1;
+        document.getElementById('nextBtn').disabled = data.articles.length < articlesPerPage;
+      } catch (error) {
+        console.error('Ошибка:', error);
+        document.getElementById('articlesList').innerHTML = `
+          <p class="error">Ошибка загрузки статей: ${error.message}</p>
+        `;
+      }
+    }
+
+    // Инициализация
+    document.addEventListener('DOMContentLoaded', () => {
       loadArticles();
 
-      // Обработчики событий
-      document.getElementById('searchButton').addEventListener('click', loadArticles);
-      document.getElementById('searchInput').addEventListener('keypress', function(e) {
-        if (e.key === 'Enter') loadArticles();
-      });
-      document.getElementById('sortSelect').addEventListener('change', loadArticles);
-      document.getElementById('prevPage').addEventListener('click', function() {
-        currentPage--;
+      document.getElementById('searchBtn').addEventListener('click', () => {
+        currentPage = 1;
         loadArticles();
       });
-      document.getElementById('nextPage').addEventListener('click', function() {
+
+      document.getElementById('prevBtn').addEventListener('click', () => {
+        if (currentPage > 1) {
+          currentPage--;
+          loadArticles();
+        }
+      });
+
+      document.getElementById('nextBtn').addEventListener('click', () => {
         currentPage++;
         loadArticles();
       });
-
-      // Переменные для пагинации
-      let currentPage = 1;
-      const articlesPerPage = 5;
-
-      // Функция загрузки статей
-      function loadArticles() {
-        const searchQuery = document.getElementById('searchInput').value;
-        const sortBy = document.getElementById('sortSelect').value;
-        
-        // Показываем индикатор загрузки
-        document.getElementById('articlesList').innerHTML = 
-          '<div class="loading-message">Загрузка статей...</div>';
-
-        // Формируем URL для запроса
-        let url = `${API_BASE}/api/articles?page=${currentPage}&limit=${articlesPerPage}`;
-        if (searchQuery) url += `&q=${encodeURIComponent(searchQuery)}`;
-        if (sortBy) url += `&sort=${sortBy}`;
-
-        fetch(url)
-          .then(response => response.json())
-          .then(data => {
-            if (data.error) throw new Error(data.error);
-            
-            // Отображаем статьи
-            if (data.articles.length === 0) {
-              document.getElementById('articlesList').innerHTML = 
-                '<div class="no-articles">Статьи не найдены</div>';
-              return;
-            }
-
-            const articlesHTML = data.articles.map(article => `
-              <article class="article-preview">
-                <h3><a href="article.html?id=${article.id}">${article.title}</a></h3>
-                <div class="article-meta">
-                  <span class="author">Автор: ${article.author}</span>
-                  <span class="date">${new Date(article.created_at).toLocaleDateString()}</span>
-                </div>
-                <div class="article-content">
-                  <p class="abstract">${article.abstract}</p>
-                  <div class="keywords">Ключевые слова: ${article.keywords}</div>
-                </div>
-                <a href="article.html?id=${article.id}" class="read-more">Читать полностью →</a>
-              </article>
-            `).join('');
-
-            document.getElementById('articlesList').innerHTML = articlesHTML;
-
-            // Обновляем пагинацию
-            document.getElementById('pageInfo').textContent = 
-              `Страница ${currentPage} из ${Math.ceil(data.totalCount / articlesPerPage)}`;
-            document.getElementById('prevPage').disabled = currentPage === 1;
-            document.getElementById('nextPage').disabled = 
-              currentPage === Math.ceil(data.totalCount / articlesPerPage);
-          })
-          .catch(error => {
-            console.error('Ошибка загрузки статей:', error);
-            document.getElementById('articlesList').innerHTML = 
-              `<div class="error-message">Ошибка загрузки: ${error.message}</div>`;
-          });
-      }
     });
   </script>
 </body>

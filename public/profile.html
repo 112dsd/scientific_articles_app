@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Личный кабинет</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="main-header">
+    <div class="header-container">
+      <h1 class="logo">Научные публикации</h1>
+      <nav class="main-nav">
+        <a href="index.html">Главная</a>
+        <a href="articles.html">Статьи</a>
+        <a href="add_article.html">Добавить статью</a>
+        <a href="profile.html" class="active">Личный кабинет</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="container">
+    <section class="profile-section">
+      <h2>Личный кабинет</h2>
+      <div class="profile-info">
+        <div class="info-item">
+          <span class="label">ФИО:</span>
+          <span id="profileName" class="value"></span>
+        </div>
+        <div class="info-item">
+          <span class="label">Email:</span>
+          <span id="profileEmail" class="value"></span>
+        </div>
+        <div class="info-item">
+          <span class="label">Учреждение:</span>
+          <span id="profileInstitution" class="value"></span>
+        </div>
+      </div>
+      <button id="logoutBtn" class="logout-btn">Выйти из аккаунта</button>
+    </section>
+  </main>
+
+  <footer class="main-footer">
+    <p>&copy; 2023 Платформа научных публикаций</p>
+  </footer>
+
+  <script src="script.js"></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', function() {
+      const token = localStorage.getItem('token');
+      if (!token) {
+        window.location.href = 'login.html';
+        return;
+      }
+
+      // Получаем данные пользователя
+      fetch(`${API_BASE}/api/profile`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      })
+      .then(response => response.json())
+      .then(data => {
+        if (data.error) throw new Error(data.error);
+        
+        document.getElementById('profileName').textContent = data.fullname;
+        document.getElementById('profileEmail').textContent = data.email;
+        document.getElementById('profileInstitution').textContent = data.institution || 'Не указано';
+      })
+      .catch(error => {
+        console.error('Ошибка:', error);
+        alert('Не удалось загрузить данные профиля');
+      });
+
+      // Выход из аккаунта
+      document.getElementById('logoutBtn').addEventListener('click', function() {
+        localStorage.removeItem('token');
+        window.location.href = 'index.html';
+      });
+    });
+  </script>
+</body>
+</html>

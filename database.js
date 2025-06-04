@@ -133,3 +133,92 @@ app.get('/api/articles/:id', (req, res) => {
     res.json(article);
   });
 });
+
+// Добавляем после других роутов
+
+// Получение данных профиля
+app.get('/api/profile', authenticate, (req, res) => {
+  db.get('SELECT fullname, email, institution FROM users WHERE id = ?', 
+    [req.user.id], 
+    (err, user) => {
+      if (err) return res.status(500).json({ error: err.message });
+      res.json(user);
+    }
+  );
+});
+
+// Получение статей с пагинацией и поиском
+app.get('/api/articles', (req, res) => {
+  const { page = 1, limit = 5, q = '', sort = 'newest' } = req.query;
+  const offset = (page - 1) * limit;
+  
+  let orderBy = 'created_at DESC';
+  if (sort === 'oldest') orderBy = 'created_at ASC';
+  if (sort === 'title') orderBy = 'title ASC';
+
+  const searchQuery = q ? `WHERE title LIKE '%${q}%' OR abstract LIKE '%${q}%'` : '';
+
+  db.all(
+    `SELECT * FROM articles ${searchQuery} ORDER BY ${orderBy} LIMIT ? OFFSET ?`, 
+    [limit, offset],
+    (err, articles) => {
+      if (err) return res.status(500).json({ error: err.message });
+      
+      db.get(`SELECT COUNT(*) as total FROM articles ${searchQuery}`, [], (err, count) => {
+        if (err) return res.status(500).json({ error: err.message });
+        
+        res.json({
+          articles,
+          totalCount: count.total
+        });
+      });
+    }
+  );
+});
+
+// Добавляем в инициализацию БД
+db.serialize(() => {
+  // ... существующие таблицы ...
+  
+  db.run(`CREATE TABLE IF NOT EXISTS comments (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    article_id INTEGER NOT NULL,
+    user_id INTEGER NOT NULL,
+    content TEXT NOT NULL,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (article_id) REFERENCES articles(id),
+    FOREIGN KEY (user_id) REFERENCES users(id)
+  )`);
+});
+
+// Добавляем новые роуты
+app.get('/api/articles/:id/comments', (req, res) => {
+  const articleId = req.params.id;
+  
+  db.all(
+    `SELECT c.*, u.fullname as author_name 
+     FROM comments c
+     JOIN users u ON c.user_id = u.id
+     WHERE c.article_id = ?
+     ORDER BY c.created_at DESC`,
+    [articleId],
+    (err, comments) => {
+      if (err) return res.status(500).json({ error: err.message });
+      res.json(comments);
+    }
+  );
+});
+
+app.post('/api/comments', authenticate, (req, res) => {
+  const { article_id, content } = req.body;
+  
+  db.run(
+    `INSERT INTO comments (article_id, user_id, content)
+     VALUES (?, ?, ?)`,
+    [article_id, req.user.id, content],
+    function(err) {
+      if (err) return res.status(500).json({ error: err.message });
+      res.json({ id: this.lastID });
+    }
+  );
+});
