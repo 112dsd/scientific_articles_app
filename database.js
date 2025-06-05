@@ -63,16 +63,97 @@ function authenticate(req, res, next) {
   const authHeader = req.headers['authorization'];
   const token = authHeader && authHeader.split(' ')[1];
   
-  if (!token) return res.sendStatus(401);
+  if (!token) return res.status(401).json({ error: 'Требуется авторизация' });
 
   jwt.verify(token, JWT_SECRET, (err, user) => {
-    if (err) return res.sendStatus(403);
+    if (err) return res.status(403).json({ error: 'Неверный токен' });
     req.user = user;
     next();
   });
 }
 
-// Articles API
+// Auth routes
+app.post('/api/register', async (req, res) => {
+  try {
+    const { fullname, email, password, institution } = req.body;
+    
+    if (!fullname || !email || !password) {
+      return res.status(400).json({ error: 'Все обязательные поля должны быть заполнены' });
+    }
+
+    const hashedPassword = await bcrypt.hash(password, SALT_ROUNDS);
+
+    const stmt = db.prepare(`
+      INSERT INTO users (fullname, email, password, institution) 
+      VALUES (?, ?, ?, ?)
+    `);
+    
+    const result = stmt.run(fullname, email, hashedPassword, institution);
+    
+    const token = jwt.sign(
+      { id: result.lastInsertRowid, email },
+      JWT_SECRET,
+      { expiresIn: '7d' }
+    );
+    
+    res.status(201).json({ 
+      token,
+      user: {
+        id: result.lastInsertRowid,
+        email,
+        fullname,
+        institution
+      }
+    });
+  } catch (err) {
+    if (err.message.includes('UNIQUE constraint failed')) {
+      return res.status(400).json({ error: 'Email уже зарегистрирован' });
+    }
+    console.error('Registration error:', err);
+    res.status(500).json({ error: 'Ошибка сервера' });
+  }
+});
+
+app.post('/api/login', async (req, res) => {
+  try {
+    const { email, password } = req.body;
+    
+    if (!email || !password) {
+      return res.status(400).json({ error: 'Все обязательные поля должны быть заполнены' });
+    }
+
+    const user = db.prepare('SELECT * FROM users WHERE email = ?').get(email);
+    if (!user) {
+      return res.status(401).json({ error: 'Неверные учетные данные' });
+    }
+
+    const valid = await bcrypt.compare(password, user.password);
+    if (!valid) {
+      return res.status(401).json({ error: 'Неверные учетные данные' });
+    }
+
+    const token = jwt.sign(
+      { id: user.id, email: user.email },
+      JWT_SECRET,
+      { expiresIn: '7d' }
+    );
+
+    res.json({ 
+      token,
+      user: {
+        id: user.id,
+        email: user.email,
+        fullname: user.fullname,
+        institution: user.institution
+      }
+    });
+  } catch (err) {
+    console.error('Login error:', err);
+    res.status(500).json({ error: 'Ошибка сервера' });
+  }
+});
+
+// Articles routes
 app.post('/api/articles', authenticate, async (req, res) => {
   try {
     const { title, author, abstract, keywords, content, bibliography } = req.body;
@@ -107,7 +188,10 @@ app.post('/api/articles', authenticate, async (req, res) => {
   }
 });
 
-// ... (остальные маршруты остаются без изменений) ...
+// Serve frontend
+app.get('*', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'index.html'));
+});
 
 // Error handling
 app.use((err, req, res, next) => {
