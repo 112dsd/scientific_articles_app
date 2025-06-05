@@ -9,17 +9,20 @@ function checkAuth() {
   const protectedPages = ['add_article.html', 'profile.html'];
   const currentPage = window.location.pathname.split('/').pop();
   
-  if (protectedPages.includes(currentPage) && !authToken) {
-    window.location.href = 'login.html';
-    return false;
+  if (protectedPages.includes(currentPage)) {
+    if (!authToken) {
+      window.location.href = 'login.html';
+      return false;
+    }
+    return true;
   }
-  return true;
+  return !!authToken;
 }
 
 function logout() {
   localStorage.removeItem('authToken');
   localStorage.removeItem('user');
-  window.location.href = 'index.html';
+  window.location.href = 'login.html';
 }
 
 // Register form
@@ -33,6 +36,9 @@ document.getElementById('registerForm')?.addEventListener('submit', async functi
     alert('Пароли не совпадают!');
     return;
   }
+  
+  const submitBtn = e.target.querySelector('button[type="submit"]');
+  submitBtn.disabled = true;
   
   try {
     const response = await fetch('/api/register', {
@@ -58,12 +64,17 @@ document.getElementById('registerForm')?.addEventListener('submit', async functi
   } catch (error) {
     console.error('Ошибка:', error);
     alert('Ошибка соединения с сервером');
+  } finally {
+    submitBtn.disabled = false;
   }
 });
 
 // Login form
 document.getElementById('loginForm')?.addEventListener('submit', async function(e) {
   e.preventDefault();
+  
+  const submitBtn = e.target.querySelector('button[type="submit"]');
+  submitBtn.disabled = true;
   
   try {
     const response = await fetch('/api/login', {
@@ -87,28 +98,33 @@ document.getElementById('loginForm')?.addEventListener('submit', async function(
   } catch (error) {
     console.error('Ошибка:', error);
     alert('Ошибка соединения с сервером');
+  } finally {
+    submitBtn.disabled = false;
   }
 });
 
 // Article functions
-let isSubmitting = false;
-
 async function loadArticles() {
   try {
+    const articlesContainer = document.getElementById('articlesList');
+    if (!articlesContainer) return;
+    
+    articlesContainer.innerHTML = '<p class="loading">Загрузка статей...</p>';
+    
     const response = await fetch('/api/articles');
-    if (!response.ok) throw new Error('Ошибка загрузки статей');
+    
+    if (!response.ok) {
+      throw new Error('Ошибка загрузки статей');
+    }
     
     const articles = await response.json();
-    const articlesList = document.getElementById('articlesList');
-    
-    if (!articlesList) return;
-    
-    articlesList.innerHTML = '';
     
     if (articles.length === 0) {
-      articlesList.innerHTML = '<p class="no-articles">Статьи не найдены</p>';
+      articlesContainer.innerHTML = '<p class="no-articles">Статьи не найдены</p>';
       return;
     }
+    
+    articlesContainer.innerHTML = '';
     
     articles.forEach(article => {
       const articleElement = document.createElement('div');
@@ -122,53 +138,39 @@ async function loadArticles() {
         <p class="article-abstract">${article.abstract.substring(0, 150)}...</p>
         <a href="article.html?id=${article.id}" class="btn btn-primary">Читать далее</a>
       `;
-      articlesList.appendChild(articleElement);
+      articlesContainer.appendChild(articleElement);
     });
   } catch (error) {
     console.error('Ошибка загрузки статей:', error);
-    const articlesList = document.getElementById('articlesList');
-    if (articlesList) {
-      articlesList.innerHTML = '<p class="error-message">Ошибка загрузки статей. Пожалуйста, попробуйте позже.</p>';
+    const articlesContainer = document.getElementById('articlesList');
+    if (articlesContainer) {
+      articlesContainer.innerHTML = `
+        <p class="error-message">
+          Ошибка загрузки статей. Пожалуйста, попробуйте позже.
+        </p>
+      `;
     }
   }
-}
-
-async function publishArticle(articleData) {
-  const token = localStorage.getItem('authToken');
-  if (!token) throw new Error('Требуется авторизация');
-
-  const response = await fetch('/api/articles', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${token}`
-    },
-    body: JSON.stringify(articleData)
-  });
-
-  if (!response.ok) {
-    const error = await response.json();
-    throw new Error(error.error || 'Ошибка публикации статьи');
-  }
-
-  return await response.json();
 }
 
 // Article form handler
 document.getElementById('articleForm')?.addEventListener('submit', async function(e) {
   e.preventDefault();
   
-  if (isSubmitting) return;
-  isSubmitting = true;
+  if (!checkAuth()) {
+    alert('Для публикации статьи необходимо войти в систему');
+    window.location.href = 'login.html';
+    return;
+  }
   
   const form = e.target;
-  const submitButton = form.querySelector('button[type="submit"]');
-  const originalButtonText = submitButton.textContent;
+  const submitBtn = form.querySelector('button[type="submit"]');
+  const originalBtnText = submitBtn.textContent;
+  
+  submitBtn.disabled = true;
+  submitBtn.textContent = 'Публикация...';
   
   try {
-    submitButton.disabled = true;
-    submitButton.textContent = 'Публикация...';
-    
     const articleData = {
       title: form.title.value,
       author: form.author.value,
@@ -178,17 +180,34 @@ document.getElementById('articleForm')?.addEventListener('submit', async functio
       bibliography: form.bibliography.value
     };
 
-    const newArticle = await publishArticle(articleData);
-    alert(`Статья "${newArticle.title}" успешно опубликована!`);
+    const response = await fetch('/api/articles', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${localStorage.getItem('authToken')}`
+      },
+      body: JSON.stringify(articleData)
+    });
+
+    const data = await response.json();
+    
+    if (!response.ok) {
+      if (data.error === 'Ошибка авторизации') {
+        logout();
+        throw new Error('Сессия истекла. Пожалуйста, войдите снова.');
+      }
+      throw new Error(data.error || 'Ошибка публикации статьи');
+    }
+
+    alert(`Статья "${data.title}" успешно опубликована!`);
     window.location.href = 'articles.html';
     
   } catch (error) {
     console.error('Ошибка публикации:', error);
     alert(error.message || 'Ошибка при публикации статьи');
   } finally {
-    submitButton.disabled = false;
-    submitButton.textContent = originalButtonText;
-    isSubmitting = false;
+    submitBtn.disabled = false;
+    submitBtn.textContent = originalBtnText;
   }
 });
 
@@ -218,6 +237,6 @@ document.addEventListener('DOMContentLoaded', function() {
     }
   }
   
-  // Logout
+  // Logout handler
   document.getElementById('logoutBtn')?.addEventListener('click', logout);
 });

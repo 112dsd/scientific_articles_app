@@ -7,7 +7,7 @@ const Database = require('better-sqlite3');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
-const JWT_SECRET = process.env.JWT_SECRET || 'your-strong-secret-key-here';
+const JWT_SECRET = process.env.JWT_SECRET || 'your-very-secure-secret-key';
 const SALT_ROUNDS = 10;
 
 // Middleware
@@ -27,6 +27,7 @@ const dbPath = process.env.NODE_ENV === 'production'
 
 const db = new Database(dbPath);
 db.pragma('journal_mode = WAL');
+db.pragma('foreign_keys = ON'); // Включаем проверку внешних ключей
 
 // Initialize database
 function initializeDatabase() {
@@ -49,9 +50,9 @@ function initializeDatabase() {
         keywords TEXT NOT NULL,
         content TEXT NOT NULL,
         bibliography TEXT,
-        user_id INTEGER,
+        user_id INTEGER NOT NULL,
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-        FOREIGN KEY (user_id) REFERENCES users(id)
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
       );
     `);
     console.log('Database initialized successfully');
@@ -63,16 +64,27 @@ function initializeDatabase() {
 
 initializeDatabase();
 
-// Auth middleware
+// Enhanced auth middleware
 function authenticate(req, res, next) {
   const authHeader = req.headers['authorization'];
   const token = authHeader && authHeader.split(' ')[1];
   
-  if (!token) return res.status(401).json({ error: 'Требуется авторизация' });
+  if (!token) {
+    return res.status(401).json({ error: 'Требуется авторизация' });
+  }
 
-  jwt.verify(token, JWT_SECRET, (err, user) => {
-    if (err) return res.status(403).json({ error: 'Неверный токен' });
-    req.user = user;
+  jwt.verify(token, JWT_SECRET, (err, decoded) => {
+    if (err) {
+      return res.status(403).json({ error: 'Неверный токен' });
+    }
+    
+    // Verify user exists in database
+    const user = db.prepare('SELECT id FROM users WHERE id = ?').get(decoded.id);
+    if (!user) {
+      return res.status(404).json({ error: 'Пользователь не найден' });
+    }
+    
+    req.user = decoded;
     next();
   });
 }
@@ -183,6 +195,12 @@ app.post('/api/articles', authenticate, (req, res) => {
       return res.status(400).json({ error: 'Все обязательные поля должны быть заполнены' });
     }
 
+    // Double-check user exists
+    const userExists = db.prepare('SELECT 1 FROM users WHERE id = ?').get(req.user.id);
+    if (!userExists) {
+      return res.status(404).json({ error: 'Пользователь не найден. Пожалуйста, войдите снова.' });
+    }
+
     const stmt = db.prepare(`
       INSERT INTO articles 
       (title, author, abstract, keywords, content, bibliography, user_id) 
@@ -199,7 +217,6 @@ app.post('/api/articles', authenticate, (req, res) => {
       req.user.id
     );
 
-    // Return the newly created article with author info
     const newArticle = db.prepare(`
       SELECT a.*, u.fullname as author_name 
       FROM articles a
@@ -210,7 +227,18 @@ app.post('/api/articles', authenticate, (req, res) => {
     res.status(201).json(newArticle);
   } catch (err) {
     console.error('Error publishing article:', err);
-    res.status(500).json({ error: 'Ошибка при публикации статьи' });
+    
+    if (err.message.includes('FOREIGN KEY constraint failed')) {
+      return res.status(400).json({ 
+        error: 'Ошибка авторизации',
+        details: 'Пожалуйста, войдите снова'
+      });
+    }
+    
+    res.status(500).json({ 
+      error: 'Ошибка при публикации статьи',
+      details: err.message 
+    });
   }
 });
 
