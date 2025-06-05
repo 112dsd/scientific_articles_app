@@ -21,7 +21,11 @@ app.use(express.urlencoded({ extended: true }));
 app.use(express.static(path.join(__dirname, 'public')));
 
 // Database setup
-const db = new Database(process.env.NODE_ENV === 'production' ? '/tmp/articles.db' : './articles.db');
+const dbPath = process.env.NODE_ENV === 'production' 
+  ? '/tmp/articles.db' 
+  : path.join(__dirname, 'articles.db');
+
+const db = new Database(dbPath);
 db.pragma('journal_mode = WAL');
 
 // Initialize database
@@ -53,6 +57,7 @@ function initializeDatabase() {
     console.log('Database initialized successfully');
   } catch (err) {
     console.error('Database initialization error:', err);
+    process.exit(1);
   }
 }
 
@@ -154,7 +159,23 @@ app.post('/api/login', async (req, res) => {
 });
 
 // Articles routes
-app.post('/api/articles', authenticate, async (req, res) => {
+app.get('/api/articles', (req, res) => {
+  try {
+    const articles = db.prepare(`
+      SELECT a.*, u.fullname as author_name 
+      FROM articles a
+      LEFT JOIN users u ON a.user_id = u.id
+      ORDER BY a.created_at DESC
+    `).all();
+    
+    res.json(articles);
+  } catch (err) {
+    console.error('Error fetching articles:', err);
+    res.status(500).json({ error: 'Ошибка при загрузке статей' });
+  }
+});
+
+app.post('/api/articles', authenticate, (req, res) => {
   try {
     const { title, author, abstract, keywords, content, bibliography } = req.body;
     
@@ -178,10 +199,15 @@ app.post('/api/articles', authenticate, async (req, res) => {
       req.user.id
     );
 
-    res.status(201).json({
-      id: result.lastInsertRowid,
-      message: 'Статья успешно опубликована'
-    });
+    // Return the newly created article with author info
+    const newArticle = db.prepare(`
+      SELECT a.*, u.fullname as author_name 
+      FROM articles a
+      LEFT JOIN users u ON a.user_id = u.id
+      WHERE a.id = ?
+    `).get(result.lastInsertRowid);
+
+    res.status(201).json(newArticle);
   } catch (err) {
     console.error('Error publishing article:', err);
     res.status(500).json({ error: 'Ошибка при публикации статьи' });
