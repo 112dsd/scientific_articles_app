@@ -53,37 +53,37 @@
   <script src="/script.js"></script>
   <script>
     // Загрузка статьи
-async function loadArticle() {
-  const articleId = new URLSearchParams(window.location.search).get('id');
-  if (!articleId) {
-    window.location.href = 'articles.html';
-    return;
-  }
+    async function loadArticle() {
+      const articleId = new URLSearchParams(window.location.search).get('id');
+      if (!articleId) {
+        window.location.href = 'articles.html';
+        return;
+      }
 
-  try {
-    const response = await fetch(`/api/articles/${articleId}`);
-    if (!response.ok) {
-      throw new Error('Статья не найдена');
+      try {
+        const response = await fetch(`/api/articles/${articleId}`);
+        if (!response.ok) {
+          throw new Error('Статья не найдена');
+        }
+        const article = await response.json();
+
+        const articleContainer = document.getElementById('articleContainer');
+        articleContainer.innerHTML = `
+          <h2>${article.title}</h2>
+          <p class="article-meta">Автор: ${article.author_name || article.author} | Дата: ${new Date(article.created_at).toLocaleDateString()}</p>
+          <h3>Аннотация</h3>
+          <p>${article.abstract}</p>
+          <h3>Ключевые слова</h3>
+          <p>${article.keywords}</p>
+          <h3>Основное содержание</h3>
+          <div class="content">${article.content.replace(/\n/g, '<br>')}</div>
+          ${article.bibliography ? `<h3>Список литературы</h3><div class="bibliography">${article.bibliography.replace(/\n/g, '<br>')}</div>` : ''}
+        `;
+      } catch (error) {
+        console.error('Error:', error);
+        document.getElementById('articleContainer').innerHTML = '<p>Не удалось загрузить статью</p>';
+      }
     }
-    const article = await response.json();
-
-    const articleContainer = document.getElementById('articleContainer');
-    articleContainer.innerHTML = `
-      <h2>${article.title}</h2>
-      <p class="article-meta">Автор: ${article.author_name || article.author} | Дата: ${new Date(article.created_at).toLocaleDateString()}</p>
-      <h3>Аннотация</h3>
-      <p>${article.abstract}</p>
-      <h3>Ключевые слова</h3>
-      <p>${article.keywords}</p>
-      <h3>Основное содержание</h3>
-      <div class="content">${article.content.replace(/\n/g, '<br>')}</div>
-      ${article.bibliography ? `<h3>Список литературы</h3><div class="bibliography">${article.bibliography.replace(/\n/g, '<br>')}</div>` : ''}
-    `;
-  } catch (error) {
-    console.error('Error:', error);
-    document.getElementById('articleContainer').innerHTML = '<p>Не удалось загрузить статью</p>';
-  }
-}
 
     // Загрузка комментариев
     async function loadComments() {

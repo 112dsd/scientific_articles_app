@@ -27,7 +27,7 @@ const dbPath = process.env.NODE_ENV === 'production'
 
 const db = new Database(dbPath);
 db.pragma('journal_mode = WAL');
-db.pragma('foreign_keys = ON'); // Включаем проверку внешних ключей
+db.pragma('foreign_keys = ON');
 
 // Initialize database
 function initializeDatabase() {
@@ -54,6 +54,16 @@ function initializeDatabase() {
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
         FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
       );
+
+      CREATE TABLE IF NOT EXISTS comments (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        content TEXT NOT NULL,
+        article_id INTEGER NOT NULL,
+        user_id INTEGER NOT NULL,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (article_id) REFERENCES articles(id) ON DELETE CASCADE,
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+      );
     `);
     console.log('Database initialized successfully');
   } catch (err) {
@@ -64,7 +74,7 @@ function initializeDatabase() {
 
 initializeDatabase();
 
-// Enhanced auth middleware
+// Auth middleware
 function authenticate(req, res, next) {
   const authHeader = req.headers['authorization'];
   const token = authHeader && authHeader.split(' ')[1];
@@ -78,7 +88,6 @@ function authenticate(req, res, next) {
       return res.status(403).json({ error: 'Неверный токен' });
     }
     
-    // Verify user exists in database
     const user = db.prepare('SELECT id FROM users WHERE id = ?').get(decoded.id);
     if (!user) {
       return res.status(404).json({ error: 'Пользователь не найден' });
@@ -87,65 +96,6 @@ function authenticate(req, res, next) {
     req.user = decoded;
     next();
   });
-  // В initializeDatabase() добавьте:
-db.exec(`
-  CREATE TABLE IF NOT EXISTS comments (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    content TEXT NOT NULL,
-    article_id INTEGER NOT NULL,
-    user_id INTEGER NOT NULL,
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (article_id) REFERENCES articles(id) ON DELETE CASCADE,
-    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
-  );
-`);
-
-// Добавьте эндпоинты для комментариев:
-app.get('/api/articles/:id/comments', (req, res) => {
-  try {
-    const comments = db.prepare(`
-      SELECT c.*, u.fullname as author_name 
-      FROM comments c
-      LEFT JOIN users u ON c.user_id = u.id
-      WHERE c.article_id = ?
-      ORDER BY c.created_at DESC
-    `).all(req.params.id);
-    
-    res.json(comments);
-  } catch (err) {
-    console.error('Error fetching comments:', err);
-    res.status(500).json({ error: 'Ошибка загрузки комментариев' });
-  }
-});
-
-app.post('/api/comments', authenticate, (req, res) => {
-  try {
-    const { article_id, content } = req.body;
-    
-    if (!article_id || !content) {
-      return res.status(400).json({ error: 'Все обязательные поля должны быть заполнены' });
-    }
-
-    const stmt = db.prepare(`
-      INSERT INTO comments (content, article_id, user_id) 
-      VALUES (?, ?, ?)
-    `);
-    
-    const result = stmt.run(content, article_id, req.user.id);
-    
-    const newComment = db.prepare(`
-      SELECT c.*, u.fullname as author_name 
-      FROM comments c
-      LEFT JOIN users u ON c.user_id = u.id
-      WHERE c.id = ?
-    `).get(result.lastInsertRowid);
-
-    res.status(201).json(newComment);
-  } catch (err) {
-    console.error('Error adding comment:', err);
-    res.status(500).json({ error: 'Ошибка при добавлении комментария' });
-  }
-});
 }
 
 // Auth routes
@@ -246,6 +196,26 @@ app.get('/api/articles', (req, res) => {
   }
 });
 
+app.get('/api/articles/:id', (req, res) => {
+  try {
+    const article = db.prepare(`
+      SELECT a.*, u.fullname as author_name 
+      FROM articles a
+      LEFT JOIN users u ON a.user_id = u.id
+      WHERE a.id = ?
+    `).get(req.params.id);
+
+    if (!article) {
+      return res.status(404).json({ error: 'Статья не найдена' });
+    }
+
+    res.json(article);
+  } catch (err) {
+    console.error('Error fetching article:', err);
+    res.status(500).json({ error: 'Ошибка при загрузке статьи' });
+  }
+});
+
 app.post('/api/articles', authenticate, (req, res) => {
   try {
     const { title, author, abstract, keywords, content, bibliography } = req.body;
@@ -254,7 +224,6 @@ app.post('/api/articles', authenticate, (req, res) => {
       return res.status(400).json({ error: 'Все обязательные поля должны быть заполнены' });
     }
 
-    // Double-check user exists
     const userExists = db.prepare('SELECT 1 FROM users WHERE id = ?').get(req.user.id);
     if (!userExists) {
       return res.status(404).json({ error: 'Пользователь не найден. Пожалуйста, войдите снова.' });
@@ -298,6 +267,53 @@ app.post('/api/articles', authenticate, (req, res) => {
       error: 'Ошибка при публикации статьи',
       details: err.message 
     });
+  }
+});
+
+// Comments routes
+app.get('/api/articles/:id/comments', (req, res) => {
+  try {
+    const comments = db.prepare(`
+      SELECT c.*, u.fullname as author_name 
+      FROM comments c
+      LEFT JOIN users u ON c.user_id = u.id
+      WHERE c.article_id = ?
+      ORDER BY c.created_at DESC
+    `).all(req.params.id);
+    
+    res.json(comments);
+  } catch (err) {
+    console.error('Error fetching comments:', err);
+    res.status(500).json({ error: 'Ошибка загрузки комментариев' });
+  }
+});
+
+app.post('/api/comments', authenticate, (req, res) => {
+  try {
+    const { article_id, content } = req.body;
+    
+    if (!article_id || !content) {
+      return res.status(400).json({ error: 'Все обязательные поля должны быть заполнены' });
+    }
+
+    const stmt = db.prepare(`
+      INSERT INTO comments (content, article_id, user_id) 
+      VALUES (?, ?, ?)
+    `);
+    
+    const result = stmt.run(content, article_id, req.user.id);
+    
+    const newComment = db.prepare(`
+      SELECT c.*, u.fullname as author_name 
+      FROM comments c
+      LEFT JOIN users u ON c.user_id = u.id
+      WHERE c.id = ?
+    `).get(result.lastInsertRowid);
+
+    res.status(201).json(newComment);
+  } catch (err) {
+    console.error('Error adding comment:', err);
+    res.status(500).json({ error: 'Ошибка при добавлении комментария' });
   }
 });
 

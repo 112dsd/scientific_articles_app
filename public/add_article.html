@@ -71,83 +71,47 @@
 
   <script src="/script.js"></script>
   <script>
-    document.getElementById('articleForm').addEventListener('submit', async function(e) {
-      e.preventDefault();
-      
-      const formData = {
-        title: document.getElementById('title').value,
-        author: document.getElementById('author').value,
-        abstract: document.getElementById('abstract').value,
-        keywords: document.getElementById('keywords').value,
-        content: document.getElementById('content').value,
-        bibliography: document.getElementById('bibliography').value
-      };
-      
-      try {
-        const response = await fetch('/api/articles', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${localStorage.getItem('authToken')}`
-          },
-          body: JSON.stringify(formData)
-        });
-        
-        if (!response.ok) {
-          throw new Error('Ошибка публикации статьи');
-        }
-        
-        alert('Статья успешно опубликована!');
-        window.location.href = 'articles.html';
-      } catch (error) {
-        console.error('Error:', error);
-        alert('Не удалось опубликовать статью');
+    document.addEventListener('DOMContentLoaded', function() {
+      const authToken = localStorage.getItem('authToken');
+      if (!authToken) {
+        alert('Для добавления статьи необходимо войти в систему');
+        window.location.href = 'login.html';
+        return;
       }
+
+      document.getElementById('articleForm').addEventListener('submit', async function(e) {
+        e.preventDefault();
+        
+        try {
+          const response = await fetch('/api/articles', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${authToken}`
+            },
+            body: JSON.stringify({
+              title: document.getElementById('title').value,
+              author: document.getElementById('author').value,
+              abstract: document.getElementById('abstract').value,
+              keywords: document.getElementById('keywords').value,
+              content: document.getElementById('content').value,
+              bibliography: document.getElementById('bibliography').value
+            })
+          });
+          
+          if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.error || 'Ошибка публикации статьи');
+          }
+          
+          alert('Статья успешно опубликована!');
+          window.location.href = 'articles.html';
+        } catch (error) {
+          console.error('Ошибка:', error);
+          alert(error.message || 'Ошибка публикации статьи');
+        }
+      });
     });
   </script>
 </body>
 </html>
-
-<script>
-document.addEventListener('DOMContentLoaded', function() {
-  const authToken = localStorage.getItem('authToken');
-  if (!authToken) {
-    alert('Для добавления статьи необходимо войти в систему');
-    window.location.href = 'login.html';
-    return;
-  }
-
-  document.getElementById('articleForm').addEventListener('submit', async function(e) {
-    e.preventDefault();
-    
-    try {
-      const response = await fetch('/api/articles', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${authToken}`
-        },
-        body: JSON.stringify({
-          title: document.getElementById('title').value,
-          author: document.getElementById('author').value,
-          abstract: document.getElementById('abstract').value,
-          keywords: document.getElementById('keywords').value,
-          content: document.getElementById('content').value,
-          bibliography: document.getElementById('bibliography').value
-        })
-      });
-      
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Ошибка публикации статьи');
-      }
-      
-      alert('Статья успешно опубликована!');
-      window.location.href = 'articles.html';
-    } catch (error) {
-      console.error('Ошибка:', error);
-      alert(error.message || 'Ошибка публикации статьи');
-    }
-  });
-});
-</script>

@@ -153,64 +153,6 @@ async function loadArticles() {
   }
 }
 
-// Article form handler
-document.getElementById('articleForm')?.addEventListener('submit', async function(e) {
-  e.preventDefault();
-  
-  if (!checkAuth()) {
-    alert('Для публикации статьи необходимо войти в систему');
-    window.location.href = 'login.html';
-    return;
-  }
-  
-  const form = e.target;
-  const submitBtn = form.querySelector('button[type="submit"]');
-  const originalBtnText = submitBtn.textContent;
-  
-  submitBtn.disabled = true;
-  submitBtn.textContent = 'Публикация...';
-  
-  try {
-    const articleData = {
-      title: form.title.value,
-      author: form.author.value,
-      abstract: form.abstract.value,
-      keywords: form.keywords.value,
-      content: form.content.value,
-      bibliography: form.bibliography.value
-    };
-
-    const response = await fetch('/api/articles', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${localStorage.getItem('authToken')}`
-      },
-      body: JSON.stringify(articleData)
-    });
-
-    const data = await response.json();
-    
-    if (!response.ok) {
-      if (data.error === 'Ошибка авторизации') {
-        logout();
-        throw new Error('Сессия истекла. Пожалуйста, войдите снова.');
-      }
-      throw new Error(data.error || 'Ошибка публикации статьи');
-    }
-
-    alert(`Статья "${data.title}" успешно опубликована!`);
-    window.location.href = 'articles.html';
-    
-  } catch (error) {
-    console.error('Ошибка публикации:', error);
-    alert(error.message || 'Ошибка при публикации статьи');
-  } finally {
-    submitBtn.disabled = false;
-    submitBtn.textContent = originalBtnText;
-  }
-});
-
 // Initialize
 document.addEventListener('DOMContentLoaded', function() {
   // Update navigation
