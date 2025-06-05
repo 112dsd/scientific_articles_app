@@ -152,3 +152,14 @@ document.addEventListener('DOMContentLoaded', function() {
   });
 });
 </script>
+
+<!-- Добавьте этот скрипт в конец файла -->
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  const authToken = localStorage.getItem('authToken');
+  if (!authToken) {
+    alert('Для добавления статьи необходимо войти в систему');
+    window.location.href = 'login.html';
+  }
+});
+</script>
