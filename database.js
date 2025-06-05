@@ -87,6 +87,65 @@ function authenticate(req, res, next) {
     req.user = decoded;
     next();
   });
+  // В initializeDatabase() добавьте:
+db.exec(`
+  CREATE TABLE IF NOT EXISTS comments (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    content TEXT NOT NULL,
+    article_id INTEGER NOT NULL,
+    user_id INTEGER NOT NULL,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (article_id) REFERENCES articles(id) ON DELETE CASCADE,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+  );
+`);
+
+// Добавьте эндпоинты для комментариев:
+app.get('/api/articles/:id/comments', (req, res) => {
+  try {
+    const comments = db.prepare(`
+      SELECT c.*, u.fullname as author_name 
+      FROM comments c
+      LEFT JOIN users u ON c.user_id = u.id
+      WHERE c.article_id = ?
+      ORDER BY c.created_at DESC
+    `).all(req.params.id);
+    
+    res.json(comments);
+  } catch (err) {
+    console.error('Error fetching comments:', err);
+    res.status(500).json({ error: 'Ошибка загрузки комментариев' });
+  }
+});
+
+app.post('/api/comments', authenticate, (req, res) => {
+  try {
+    const { article_id, content } = req.body;
+    
+    if (!article_id || !content) {
+      return res.status(400).json({ error: 'Все обязательные поля должны быть заполнены' });
+    }
+
+    const stmt = db.prepare(`
+      INSERT INTO comments (content, article_id, user_id) 
+      VALUES (?, ?, ?)
+    `);
+    
+    const result = stmt.run(content, article_id, req.user.id);
+    
+    const newComment = db.prepare(`
+      SELECT c.*, u.fullname as author_name 
+      FROM comments c
+      LEFT JOIN users u ON c.user_id = u.id
+      WHERE c.id = ?
+    `).get(result.lastInsertRowid);
+
+    res.status(201).json(newComment);
+  } catch (err) {
+    console.error('Error adding comment:', err);
+    res.status(500).json({ error: 'Ошибка при добавлении комментария' });
+  }
+});
 }
 
 // Auth routes
