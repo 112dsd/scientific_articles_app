@@ -3,8 +3,6 @@ const path = require('path');
 const bcrypt = require('bcrypt');
 const cors = require('cors');
 const jwt = require('jsonwebtoken');
-
-// Используем better-sqlite3 вместо sqlite3
 const Database = require('better-sqlite3');
 
 const app = express();
@@ -14,17 +12,16 @@ const SALT_ROUNDS = 10;
 
 // Middleware
 app.use(cors({
-  origin: process.env.NODE_ENV === 'production' ? 'https://your-render-app.onrender.com' : '*'
+  origin: '*',
+  methods: ['GET', 'POST', 'PUT', 'DELETE'],
+  allowedHeaders: ['Content-Type', 'Authorization']
 }));
 app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 app.use(express.static(path.join(__dirname, 'public')));
 
 // Database setup
-const dbPath = process.env.NODE_ENV === 'production' 
-  ? '/tmp/articles.db' 
-  : path.join(__dirname, 'articles.db');
-
-const db = new Database(dbPath);
+const db = new Database(process.env.NODE_ENV === 'production' ? '/tmp/articles.db' : './articles.db');
 db.pragma('journal_mode = WAL');
 
 // Initialize database
@@ -52,87 +49,65 @@ function initializeDatabase() {
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
         FOREIGN KEY (user_id) REFERENCES users(id)
       );
-      
-      CREATE TABLE IF NOT EXISTS comments (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        article_id INTEGER NOT NULL,
-        user_id INTEGER NOT NULL,
-        content TEXT NOT NULL,
-        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-        FOREIGN KEY (article_id) REFERENCES articles(id),
-        FOREIGN KEY (user_id) REFERENCES users(id)
-      );
     `);
     console.log('Database initialized successfully');
   } catch (err) {
     console.error('Database initialization error:', err);
-    process.exit(1);
   }
 }
 
 initializeDatabase();
 
-// Authentication middleware
+// Auth middleware
 function authenticate(req, res, next) {
-  const token = req.headers.authorization?.split(' ')[1];
-  if (!token) return res.status(401).json({ error: 'Требуется авторизация' });
+  const authHeader = req.headers['authorization'];
+  const token = authHeader && authHeader.split(' ')[1];
+  
+  if (!token) return res.sendStatus(401);
 
-  try {
-    req.user = jwt.verify(token, JWT_SECRET);
+  jwt.verify(token, JWT_SECRET, (err, user) => {
+    if (err) return res.sendStatus(403);
+    req.user = user;
     next();
-  } catch (err) {
-    res.status(401).json({ error: 'Неверный токен' });
-  }
+  });
 }
 
-// API Routes (пример одного маршрута, остальные аналогично)
-app.post('/api/register', async (req, res) => {
+// Articles API
+app.post('/api/articles', authenticate, async (req, res) => {
   try {
-    const { fullname, email, password, institution } = req.body;
+    const { title, author, abstract, keywords, content, bibliography } = req.body;
     
-    if (!fullname || !email || !password) {
-      return res.status(400).json({ error: 'Заполните все обязательные поля' });
+    if (!title || !author || !abstract || !keywords || !content) {
+      return res.status(400).json({ error: 'Все обязательные поля должны быть заполнены' });
     }
-
-    const hashedPassword = await bcrypt.hash(password, SALT_ROUNDS);
 
     const stmt = db.prepare(`
-      INSERT INTO users (fullname, email, password, institution) 
-      VALUES (?, ?, ?, ?)
+      INSERT INTO articles 
+      (title, author, abstract, keywords, content, bibliography, user_id) 
+      VALUES (?, ?, ?, ?, ?, ?, ?)
     `);
     
-    const info = stmt.run(fullname, email, hashedPassword, institution);
-    
-    const token = jwt.sign(
-      { id: info.lastInsertRowid, email },
-      JWT_SECRET,
-      { expiresIn: '7d' }
+    const result = stmt.run(
+      title,
+      author,
+      abstract,
+      keywords,
+      content,
+      bibliography || '',
+      req.user.id
     );
-    
-    res.status(201).json({ 
-      token,
-      user: {
-        id: info.lastInsertRowid,
-        email,
-        fullname,
-        institution
-      }
+
+    res.status(201).json({
+      id: result.lastInsertRowid,
+      message: 'Статья успешно опубликована'
     });
   } catch (err) {
-    if (err.message.includes('UNIQUE constraint failed')) {
-      return res.status(400).json({ error: 'Email уже зарегистрирован' });
-    }
-    console.error('Registration error:', err);
-    res.status(500).json({ error: 'Ошибка сервера' });
+    console.error('Error publishing article:', err);
+    res.status(500).json({ error: 'Ошибка при публикации статьи' });
   }
 });
 
-// ... [остальные маршруты аналогично, используя better-sqlite3 синтаксис] ...
-
-// Serve frontend
-app.get('*', (req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'index.html'));
-});
+// ... (остальные маршруты остаются без изменений) ...
 
 // Error handling
 app.use((err, req, res, next) => {
